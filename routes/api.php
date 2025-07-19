@@ -1,10 +1,13 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ScheduleController;
-use App\Http\Controllers\EmployeeController;
-use App\Http\Controllers\StoreController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\{
+    AuthController,
+    ScheduleController,
+    EmployeeController,
+    StoreController,
+    ShiftController
+};
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -26,6 +29,10 @@ Route::middleware(['auth:sanctum', 'role:admin,cos,acos'])->group(function () {
     Route::put('/schedules/{id}', [ScheduleController::class, 'updateSchedule']);
     Route::get('/schedules/daily', [ScheduleController::class, 'getDailySchedule']);
     Route::get('/schedules/export', [ScheduleController::class, 'exportSchedule']);
+    Route::post('/schedules/manual-save', [ScheduleController::class, 'saveManualSchedule']);
+
+    // Shift types (masukkan di sini)
+    Route::get('/shift-types', [ShiftController::class, 'index']);
 
     // Karyawan
     Route::get('/employees', [EmployeeController::class, 'index']);

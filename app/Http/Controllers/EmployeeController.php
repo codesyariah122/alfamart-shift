@@ -11,7 +11,7 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $storeId = $request->user()->store_id;
-        
+
         $employees = Employee::where('store_id', $storeId)
             ->with('store')
             ->paginate(20);
@@ -53,7 +53,11 @@ class EmployeeController extends Controller
 
         $employee = Employee::findOrFail($id);
         $employee->update($request->only([
-            'name', 'email', 'phone', 'status', 'gender'
+            'name',
+            'email',
+            'phone',
+            'status',
+            'gender'
         ]));
 
         return response()->json([

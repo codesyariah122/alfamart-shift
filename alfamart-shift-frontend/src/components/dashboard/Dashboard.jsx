@@ -6,11 +6,29 @@ import {
     ChartBarIcon,
     Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
-import ScheduleGenerator from './ScheduleGenerator';
+import { ScheduleGenerator, ScheduleViewer } from '@/components/dashboard';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// Dashboard components
 const Dashboard = () => {
     const [activeModal, setActiveModal] = useState(null);
+
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    const getCardsByRole = (role) => {
+        switch (role) {
+            case 'admin':
+                return ['generate', 'schedule', 'calendar', 'employees', 'reports', 'settings'];
+            case 'cos':
+            case 'acos':
+                return ['generate', 'schedule', 'calendar', 'reports'];
+            case 'employee':
+                return ['schedule', 'calendar'];
+            default:
+                return [];
+        }
+    };
 
     const cards = [
         {
@@ -27,7 +45,7 @@ const Dashboard = () => {
             description: 'Tampilkan jadwal shift semua karyawan',
             icon: CalendarDaysIcon,
             gradient: 'from-green-500 to-teal-600',
-            component: null
+            component: ScheduleViewer
         },
         {
             id: 'calendar',
@@ -62,6 +80,16 @@ const Dashboard = () => {
             component: null
         }
     ];
+    const handleCardClick = (cardId) => {
+        switch (cardId) {
+            case "calendar":
+                navigate('/calendar');
+                break;
+            default:
+                openModal(cardId);
+        }
+    };
+
 
     const openModal = (cardId) => {
         setActiveModal(cardId);
@@ -70,7 +98,9 @@ const Dashboard = () => {
     const closeModal = () => {
         setActiveModal(null);
     };
-
+    const visibleCards = cards.filter(card =>
+        getCardsByRole(user?.role).includes(card.id)
+    );
     return (
         <div className="p-6">
             <div className="mb-8">
@@ -82,15 +112,29 @@ const Dashboard = () => {
                 </p>
             </div>
 
+            <div className="mb-6 bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <h2 className="text-lg font-semibold text-blue-900 mb-2">👤 Informasi Pengguna</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-800">
+                    <div><span className="font-medium text-gray-700">Nama:</span> {user?.name}</div>
+                    <div><span className="font-medium text-gray-700">NIK:</span> {user?.nik}</div>
+                    <div><span className="font-medium text-gray-700">Role:</span> {user?.role}</div>
+                    <div><span className="font-medium text-gray-700">Email:</span> {user?.email || '-'}</div>
+                    <div><span className="font-medium text-gray-700">Toko:</span> {user?.store?.store_name || '-'}</div>
+                    <div><span className="font-medium text-gray-700">Kode Toko:</span> {user?.store?.store_code || '-'}</div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cards.map((card, index) => (
+                {visibleCards.map((card, index) => (
                     <motion.div
                         key={card.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
                         className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100"
-                        onClick={() => openModal(card.id)}
+                        // onClick={() => openModal(card.id)}
+                        onClick={() => handleCardClick(card.id)}
+
                     >
                         <div className={`w-12 h-12 bg-gradient-to-r ${card.gradient} rounded-xl flex items-center justify-center mb-4`}>
                             <card.icon className="h-6 w-6 text-white" />
@@ -126,7 +170,7 @@ const Dashboard = () => {
                         </div>
 
                         {(() => {
-                            const card = cards.find(c => c.id === activeModal);
+                            const card = visibleCards.find(c => c.id === activeModal);
                             if (card?.component) {
                                 const Component = card.component;
                                 return <Component onClose={closeModal} />;

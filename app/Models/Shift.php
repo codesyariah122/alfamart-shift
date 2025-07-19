@@ -32,15 +32,15 @@ class Shift extends Model
         if ($this->gender_restriction === 'none') {
             return true;
         }
-        
+
         if ($this->gender_restriction === 'male_only' && $gender === 'male') {
             return true;
         }
-        
+
         if ($this->gender_restriction === 'female_only' && $gender === 'female') {
             return true;
         }
-        
+
         return false;
     }
 }

@@ -10,6 +10,7 @@ class Schedule extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'employee_id',
         'shift_id',
         'schedule_date',
@@ -17,7 +18,8 @@ class Schedule extends Model
         'year',
         'generation_type',
         'notes',
-        'status'
+        'status',
+        'created_by',
     ];
 
     protected $casts = [
@@ -32,5 +34,10 @@ class Schedule extends Model
     public function shift()
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(Employee::class, 'created_by');
     }
 }
