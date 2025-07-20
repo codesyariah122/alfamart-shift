@@ -1,7 +1,6 @@
 import React from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import idLocale from 'date-fns/locale/id';
 

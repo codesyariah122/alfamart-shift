@@ -1,2 +1,5 @@
+export * from './settings'
 export { default as ScheduleCalendar } from './ScheduleCalendar'
 export { default as ManualScheduleEditor } from './ManualScheduleEditor'
+export { default as EmployeeManagement } from './EmployeeManagement'
+export { default as ReportDashboard } from './ReportDashboard'

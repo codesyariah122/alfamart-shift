@@ -1,5 +1,6 @@
 // src/pages/SchedulePage.jsx
 import React, { useEffect, useState } from 'react';
+import { ArrowLeftIcon } from '@heroicons/react/20/solid';
 import { useSchedule } from '@/context/ScheduleContext';
 import { ScheduleCalendar } from '@/components/dashboard';
 
@@ -30,6 +31,13 @@ const CalendarPage = () => {
 
     return (
         <div className="p-6 space-y-4">
+            <a
+                href="http://localhost:3000/dashboard"
+                className="inline-flex items-center bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 w-fit"
+            >
+                <ArrowLeftIcon className="w-5 h-5 mr-2" />
+                Kembali ke Dashboard
+            </a>
             <h1 className="text-2xl font-bold">Kalender Jadwal Shift</h1>
 
             {/* Filter */}

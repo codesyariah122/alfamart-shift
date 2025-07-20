@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSchedule } from '@/context/ScheduleContext';
+import { useSchedule } from '@/context';
 import clsx from 'clsx';
 
 const ScheduleViewer = () => {
@@ -10,7 +10,7 @@ const ScheduleViewer = () => {
     const [data, setData] = useState(null);
     const [createdBy, setCreatedBy] = useState(null);
     const [loading, setLoading] = useState(false);
-
+    const [stores, setStores] = useState([]);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -30,6 +30,19 @@ const ScheduleViewer = () => {
     useEffect(() => {
         fetchSchedule();
     }, [year, month]);
+
+    useEffect(() => {
+        const fetchStores = async () => {
+            try {
+                const data = await scheduleAPI.getStores();
+                setStores(data.data || []);
+            } catch (err) {
+                console.error(err.message);
+            }
+        };
+
+        fetchStores();
+    }, []);
 
     const getShiftColor = (code) => {
         switch (code) {

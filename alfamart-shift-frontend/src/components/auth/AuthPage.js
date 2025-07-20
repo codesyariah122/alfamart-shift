@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import Login from './Login';
 import Register from './Register';
 
@@ -78,8 +79,8 @@ const AuthPage = () => {
                             <button
                                 onClick={() => setIsLogin(true)}
                                 className={`px-6 py-2 rounded-lg transition-all font-medium ${isLogin
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-900'
                                     }`}
                             >
                                 Login
@@ -87,8 +88,8 @@ const AuthPage = () => {
                             <button
                                 onClick={() => setIsLogin(false)}
                                 className={`px-6 py-2 rounded-lg transition-all font-medium ${!isLogin
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-900'
                                     }`}
                             >
                                 Register
@@ -103,9 +104,15 @@ const AuthPage = () => {
                             <Register key="register" onSwitchToLogin={() => setIsLogin(true)} />
                         )}
                     </AnimatePresence>
+                    {/* Link lupa password */}
+                    <div className="text-center text-sm mt-2">
+                        <Link to="/forgot-password" className="text-blue-600 hover:underline">
+                            Lupa password?
+                        </Link>
+                    </div>
                 </motion.div>
-            </motion.div>
-        </div>
+            </motion.div >
+        </div >
     );
 };
 

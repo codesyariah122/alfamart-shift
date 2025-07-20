@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -9,6 +9,7 @@ const Login = ({ onSwitchToRegister }) => {
     const { login, loading } = useAuth();
     const {
         register,
+        setValue,
         handleSubmit,
         formState: { errors },
     } = useForm();
@@ -22,6 +23,14 @@ const Login = ({ onSwitchToRegister }) => {
             navigate('/dashboard'); // ⬅️ redirect ke dashboard
         }
     };
+
+    useEffect(() => {
+        const storedNIK = localStorage.getItem('nik');
+        if (storedNIK) {
+            setValue('nik', storedNIK);
+        }
+    }, [setValue]);
+
 
     return (
         <motion.div

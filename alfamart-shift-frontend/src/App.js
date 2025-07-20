@@ -4,10 +4,9 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { ScheduleProvider } from '@/context/ScheduleContext'; //
+import { AuthProvider, useAuth, ScheduleProvider, SettingsProvider } from '@/context';
 
-import { DashboardPage, CalendarPage } from '@/pages';
+import { DashboardPage, CalendarPage, ActivationSuccess, SetPassword, ForgotPassword, SetNewPassword } from '@/pages';
 
 import AuthPage from '@/components/auth/AuthPage';
 import Navbar from '@/components/layout/Navbar';
@@ -35,24 +34,45 @@ function AppContent() {
         );
     }
 
-    if (!isAuthenticated) {
-        return <AuthPage />;
-    }
-
     return (
-        <ScheduleProvider>
-            <div className="min-h-screen bg-gray-50">
-                <Navbar />
-                <main className="max-w-7xl mx-auto relative overflow-visible">
-                    <Routes>
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/calendar" element={<CalendarPage />} />
-                    </Routes>
-                </main>
-            </div>
-        </ScheduleProvider>
+        <SettingsProvider>
+
+            <ScheduleProvider>
+                <Routes>
+                    {/* Route publik */}
+                    <Route path="/activation-success" element={<ActivationSuccess />} />
+                    <Route path="/set-password" element={<SetPassword />} />
+
+                    {/* Route forgot password */}
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/set-new-password" element={<SetNewPassword />} />
+
+                    {/* Jika belum login, tetap di AuthPage untuk route lain */}
+                    {!isAuthenticated ? (
+                        <Route path="*" element={<AuthPage />} />
+                    ) : (
+                        <Route
+                            path="*"
+                            element={
+                                <div className="min-h-screen bg-gray-50">
+                                    <Navbar />
+                                    <main className="max-w-7xl mx-auto relative overflow-visible">
+                                        <Routes>
+
+                                            <Route path="/dashboard" element={<DashboardPage />} />
+                                            <Route path="/calendar" element={<CalendarPage />} />
+                                        </Routes>
+                                    </main>
+                                </div>
+                            }
+                        />
+                    )}
+                </Routes>
+            </ScheduleProvider>
+        </SettingsProvider>
     );
 }
+
 
 function App() {
     return (

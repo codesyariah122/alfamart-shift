@@ -12,6 +12,7 @@ class Employee extends Authenticatable
     use HasFactory, Notifiable, HasApiTokens;
 
     protected $fillable = [
+        'store_id',
         'nik',
         'name',
         'email',
@@ -19,6 +20,8 @@ class Employee extends Authenticatable
         'phone',
         'store_id',
         'status',
+        'email_verified_at',
+        'activation_token',
         'password',
         'role'
     ];

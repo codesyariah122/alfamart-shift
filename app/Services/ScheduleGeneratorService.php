@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Employee;
-use App\Models\Schedule;
-use App\Models\Shift;
-use App\Models\Store;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Support\Facades\Mail;
+use App\Models\{Employee, Schedule, Shift, Store};
+use App\Mail\ScheduleGeneratedMail;
 
 class ScheduleGeneratorService
 {
@@ -17,20 +16,17 @@ class ScheduleGeneratorService
         $employees = Employee::where('store_id', $storeId)->where('status', 'active')->get();
         $shifts = Shift::all();
 
-        // Tentukan rentang tanggal
         $fromDate = $from ?? Carbon::create($year, $month, 1);
         $toDate = $to ?? Carbon::create($year, $month)->endOfMonth();
 
-        // Hapus jadwal yang sudah ada dalam rentang
         Schedule::whereHas('employee', fn($q) => $q->where('store_id', $storeId))
             ->whereBetween('schedule_date', [$fromDate, $toDate])
             ->delete();
 
-        // Hapus jadwal lama (berdasarkan mode)
         if ($generationType === 'hybrid') {
             Schedule::whereHas('employee', fn($q) => $q->where('store_id', $storeId))
                 ->whereBetween('schedule_date', [$fromDate, $toDate])
-                ->where('generation_type', '!=', 'manual') // ⬅️ Jangan hapus manual
+                ->where('generation_type', '!=', 'manual')
                 ->delete();
         } else {
             Schedule::whereHas('employee', fn($q) => $q->where('store_id', $storeId))
@@ -40,21 +36,19 @@ class ScheduleGeneratorService
 
         $schedules = [];
 
-        // Logika penjadwalan mingguan berdasarkan pola
         if ($generationType === 'weekly' && !empty($weeklyPattern)) {
             foreach (CarbonPeriod::create($fromDate, $toDate) as $date) {
                 $day = strtolower($date->englishDayOfWeek);
                 $pattern = $weeklyPattern[$day] ?? null;
 
                 if ($pattern) {
-                    $result = $this->assignShiftsForPattern($date, $employees, $shifts, $pattern, $createdBy);
+                    $result = $this->assignShiftsForPattern($storeId, $date, $employees, $shifts, $pattern, $createdBy);
                     $schedules = array_merge($schedules, $result);
                 }
             }
         } else {
-            // Penjadwalan harian berdasarkan logika default
             foreach (CarbonPeriod::create($fromDate, $toDate) as $date) {
-                $result = $this->assignShiftsForDate($date, $employees, $shifts, $store, $generationType, $createdBy);
+                $result = $this->assignShiftsForDate($storeId, $date, $employees, $shifts, $store, $generationType, $createdBy);
                 $schedules = array_merge($schedules, $result);
             }
         }
@@ -68,7 +62,7 @@ class ScheduleGeneratorService
         ];
     }
 
-    private function assignShiftsForPattern($date, $employees, $shifts, $pattern, $createdBy)
+    private function assignShiftsForPattern($storeId, $date, $employees, $shifts, $pattern, $createdBy)
     {
         $assigned = collect();
         $allSchedules = [];
@@ -79,18 +73,13 @@ class ScheduleGeneratorService
 
             if (!$shift) continue;
 
-            // Filter gender sesuai aturan shift
-            $filtered = $employees->filter(function ($emp) use ($shift) {
-                return $shift->canAssignToGender($emp->gender);
-            });
-
-            // Hindari assign yang sama
+            $filtered = $employees->filter(fn($emp) => $shift->canAssignToGender($emp->gender));
             $available = $filtered->diff($assigned)->shuffle();
             $selected = $available->take($jumlah);
 
             foreach ($selected as $emp) {
                 $assigned->push($emp);
-                $allSchedules[] = $this->createScheduleRow($emp, $shift, $date, 'weekly', $createdBy);
+                $allSchedules[] = $this->createScheduleRow($emp, $shift, $date, 'weekly', $createdBy, $storeId);
             }
         }
 
@@ -99,21 +88,6 @@ class ScheduleGeneratorService
 
 
 
-    private function determineShift($employee, $date, &$offDaysCount, $requiredOffDays, $generationType, $createdBy, $shifts, $store)
-    {
-        $offShift = $shifts->where('shift_code', 'O')->first();
-
-        // Libur setiap 7 hari, atau jika belum mencapai kuota
-        if ($offDaysCount < $requiredOffDays && $date->dayOfWeek === Carbon::SUNDAY) {
-            return $offShift;
-        }
-
-        if ($generationType === 'auto' || $createdBy === 'auto') {
-            return $this->autoScheduleLogic($employee, $date, $shifts, $store);
-        } else {
-            return $this->randomScheduleLogic($employee, $shifts, $offShift);
-        }
-    }
 
     private function autoScheduleLogic($employee, $date, $shifts, $store)
     {
@@ -145,7 +119,7 @@ class ScheduleGeneratorService
         return $availableShifts->random();
     }
 
-    private function assignShiftsForDate($date, $employees, $shifts, $store, $generationType, $createdBy = null)
+    private function assignShiftsForDate($storeId, $date, $employees, $shifts, $store, $generationType, $createdBy = null)
     {
         $available = $employees->shuffle();
         $assigned = collect();
@@ -153,21 +127,17 @@ class ScheduleGeneratorService
         $pria = $available->where('gender', 'male');
         $wanita = $available->where('gender', 'female');
 
-        // Shift malam (khusus pria)
         $malam = $pria->take(2);
         $assigned = $assigned->merge($malam);
 
-        // Shift pagi (3 orang)
         $sisa = $available->diff($assigned)->shuffle();
         $pagi = $sisa->take(3);
         $assigned = $assigned->merge($pagi);
 
-        // Shift siang (3 orang)
         $sisa = $available->diff($assigned)->shuffle();
         $siang = $sisa->take(3);
         $assigned = $assigned->merge($siang);
 
-        // Libur (2 orang)
         $sisa = $available->diff($assigned)->shuffle();
         $libur = $sisa->take(2);
 
@@ -179,24 +149,26 @@ class ScheduleGeneratorService
         $allSchedules = [];
 
         foreach ($pagi as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftP, $date, $generationType, $createdBy);
+            $allSchedules[] = $this->createScheduleRow($emp, $shiftP, $date, $generationType, $createdBy, $storeId);
         }
         foreach ($siang as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftS, $date, $generationType, $createdBy);
+            $allSchedules[] = $this->createScheduleRow($emp, $shiftS, $date, $generationType, $createdBy, $storeId);
         }
         foreach ($malam as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftM, $date, $generationType, $createdBy);
+            $allSchedules[] = $this->createScheduleRow($emp, $shiftM, $date, $generationType, $createdBy, $storeId);
         }
         foreach ($libur as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftO, $date, $generationType, $createdBy);
+            $allSchedules[] = $this->createScheduleRow($emp, $shiftO, $date, $generationType, $createdBy, $storeId);
         }
 
         return $allSchedules;
     }
 
-    private function createScheduleRow($employee, $shift, $date, $generationType, $createdBy = null)
+
+    private function createScheduleRow($employee, $shift, $date, $generationType, $createdBy = null, $storeId)
     {
         return Schedule::create([
+            'store_id' => $storeId,
             'employee_id' => $employee->id,
             'shift_id' => $shift->id,
             'schedule_date' => $date,
@@ -206,6 +178,23 @@ class ScheduleGeneratorService
             'status' => 'pending',
             'created_by' => $createdBy,
         ]);
+    }
+
+
+    private function determineShift($employee, $date, &$offDaysCount, $requiredOffDays, $generationType, $createdBy, $shifts, $store)
+    {
+        $offShift = $shifts->where('shift_code', 'O')->first();
+
+        // Libur setiap 7 hari, atau jika belum mencapai kuota
+        if ($offDaysCount < $requiredOffDays && $date->dayOfWeek === Carbon::SUNDAY) {
+            return $offShift;
+        }
+
+        if ($generationType === 'auto' || $createdBy === 'auto') {
+            return $this->autoScheduleLogic($employee, $date, $shifts, $store);
+        } else {
+            return $this->randomScheduleLogic($employee, $shifts, $offShift);
+        }
     }
 
     public function insertManualSchedules(array $rawSchedules, int $storeId, int $month, int $year, ?int $createdBy)
@@ -250,5 +239,51 @@ class ScheduleGeneratorService
             'year' => $year,
             'created_by' => $createdBy,
         ];
+    }
+
+    public function resetEmployeeSchedule(array $data): int
+    {
+        return Schedule::where('employee_id', $data['employee_id'])
+            ->where('store_id', $data['store_id'])
+            ->where('month', $data['month'])
+            ->where('year', $data['year'])
+            ->delete();
+    }
+
+    public function resetAllSchedulesByStore(array $params): int
+    {
+        $storeId = $params['store_id'];
+        $month = $params['month'];
+        $year = $params['year'];
+
+        return Schedule::where('store_id', $storeId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->delete();
+    }
+
+    public function sendScheduleEmails($storeId, $month, $year, $createdBy)
+    {
+        $employees = Employee::where('store_id', $storeId)
+            ->where('status', 'active')
+            ->with(['schedules' => function ($query) use ($month, $year) {
+                $query->where('month', $month)->where('year', $year)->with('shift');
+            }])->get();
+
+        foreach ($employees as $employee) {
+            if (!$employee->email) continue;
+
+            $schedules = $employee->schedules;
+
+            if ($schedules->isEmpty()) continue;
+
+            Mail::to($employee->email)->queue(new ScheduleGeneratedMail(
+                $employee,
+                $schedules,
+                $employee->schedules->first()->creator->name ?? $createdBy,
+                $month,
+                $year
+            ));
+        }
     }
 }

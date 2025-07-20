@@ -95,6 +95,57 @@ export const AuthProvider = ({ children }) => {
             };
         }
     };
+    // Tambahkan fungsi ini di dalam AuthProvider
+    const setPassword = async ({ email, password }) => {
+        try {
+            const response = await api.post('/set-password', { email, password });
+            return {
+                success: true,
+                message: response.data?.message || 'Password berhasil disimpan!',
+                nik: response.data?.nik,
+            };
+        } catch (error) {
+            console.error('Set password error:', error.response?.data);
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Gagal menyimpan password',
+                errors: error.response?.data?.errors,
+            };
+        }
+    };
+
+    const forgotPassword = async (email) => {
+        try {
+            const response = await api.post('/forgot-password', { email });
+            return {
+                success: true,
+                message: response.data?.message || 'Link reset password sudah dikirim ke email.',
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Email tidak ditemukan.',
+            };
+        }
+    };
+
+    const setNewPassword = async ({ token, password }) => {
+        try {
+            const response = await api.post('/set-new-password', { token, password });
+            return {
+                success: true,
+                message: response.data?.message || 'Password berhasil diubah',
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Gagal mengubah password',
+            };
+        }
+    };
+
+
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -107,6 +158,9 @@ export const AuthProvider = ({ children }) => {
                 login,
                 register,
                 logout,
+                setPassword,
+                forgotPassword,
+                setNewPassword,
             }}
         >
             {children}

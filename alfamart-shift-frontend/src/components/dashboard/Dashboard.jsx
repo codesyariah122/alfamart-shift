@@ -1,14 +1,9 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-    CalendarDaysIcon,
-    UsersIcon,
-    ChartBarIcon,
-    Cog6ToothIcon,
-} from '@heroicons/react/24/outline';
-import { ScheduleGenerator, ScheduleViewer } from '@/components/dashboard';
-import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useAuth, EmployeeProvider } from '@/context';
+import { cards } from '@/commons';
 
 const Dashboard = () => {
     const [activeModal, setActiveModal] = useState(null);
@@ -30,56 +25,6 @@ const Dashboard = () => {
         }
     };
 
-    const cards = [
-        {
-            id: 'generate',
-            title: 'Generate Jadwal',
-            description: 'Buat jadwal shift otomatis atau manual',
-            icon: CalendarDaysIcon,
-            gradient: 'from-blue-500 to-purple-600',
-            component: ScheduleGenerator
-        },
-        {
-            id: 'schedule',
-            title: 'Lihat Jadwal',
-            description: 'Tampilkan jadwal shift semua karyawan',
-            icon: CalendarDaysIcon,
-            gradient: 'from-green-500 to-teal-600',
-            component: ScheduleViewer
-        },
-        {
-            id: 'calendar',
-            title: 'Kalender',
-            description: 'Lihat jadwal dalam tampilan kalender',
-            icon: CalendarDaysIcon,
-            gradient: 'from-purple-500 to-pink-600',
-            component: null
-        },
-        {
-            id: 'employees',
-            title: 'Karyawan',
-            description: 'Kelola data karyawan',
-            icon: UsersIcon,
-            gradient: 'from-orange-500 to-red-600',
-            component: null
-        },
-        {
-            id: 'reports',
-            title: 'Laporan',
-            description: 'Lihat laporan dan statistik',
-            icon: ChartBarIcon,
-            gradient: 'from-yellow-500 to-orange-600',
-            component: null
-        },
-        {
-            id: 'settings',
-            title: 'Pengaturan',
-            description: 'Konfigurasi sistem',
-            icon: Cog6ToothIcon,
-            gradient: 'from-gray-500 to-gray-700',
-            component: null
-        }
-    ];
     const handleCardClick = (cardId) => {
         switch (cardId) {
             case "calendar":
@@ -89,7 +34,6 @@ const Dashboard = () => {
                 openModal(cardId);
         }
     };
-
 
     const openModal = (cardId) => {
         setActiveModal(cardId);
@@ -163,9 +107,9 @@ const Dashboard = () => {
                             </h2>
                             <button
                                 onClick={closeModal}
-                                className="text-gray-400 hover:text-gray-600 text-2xl"
+                                className="text-gray-400 hover:text-gray-600"
                             >
-                                ×
+                                <XMarkIcon className="w-6 h-6" />
                             </button>
                         </div>
 
@@ -173,7 +117,11 @@ const Dashboard = () => {
                             const card = visibleCards.find(c => c.id === activeModal);
                             if (card?.component) {
                                 const Component = card.component;
-                                return <Component onClose={closeModal} />;
+                                return (
+                                    <EmployeeProvider>
+                                        <Component onClose={closeModal} />
+                                    </EmployeeProvider>
+                                );
                             }
                             return (
                                 <div className="text-center py-8">

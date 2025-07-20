@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\{Employee, Schedule, Shift};
 use App\Services\ScheduleGeneratorService;
@@ -39,6 +40,8 @@ class ScheduleController extends Controller
 
         try {
             $storeId = $request->store_id;
+            // var_dump($storeId);
+            // die;
             $generationType = $request->generation_type;
             $from = $request->filled('from') ? Carbon::parse($request->from) : null;
             $to = $request->filled('to') ? Carbon::parse($request->to) : null;
@@ -58,6 +61,8 @@ class ScheduleController extends Controller
                 $weeklyPattern // ⬅️ oper ke service
             );
 
+            $this->scheduleGenerator->sendScheduleEmails($storeId, $month, $year, $request->user()->name);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Jadwal berhasil di-generate',
@@ -70,8 +75,6 @@ class ScheduleController extends Controller
             ], 500);
         }
     }
-
-
 
     public function getSchedule(Request $request)
     {
@@ -119,6 +122,35 @@ class ScheduleController extends Controller
         ]);
     }
 
+    public function getManualSchedule(Request $request)
+    {
+        $storeId = $request->query('store_id');
+        $month = $request->query('month');
+        $year = $request->query('year');
+
+        if (!$storeId || !$month || !$year) {
+            return response()->json(['error' => 'Parameter tidak lengkap'], 400);
+        }
+
+        $schedules = Schedule::whereYear('schedule_date', $year)
+            ->whereMonth('schedule_date', $month)
+            ->where('store_id', $storeId)
+            ->with('shift') // relasi ke tabel shifts
+            ->get();
+
+        // Transform jadi format array: employee_id, day, shift_code
+        $result = $schedules->map(function ($item) {
+            return [
+                'employee_id' => $item->employee_id,
+                'day' => date('j', strtotime($item->schedule_date)), // 1-31
+                'shift_code' => $item->shift->shift_code ?? null
+            ];
+        });
+
+        return response()->json($result);
+    }
+
+
     public function getDailySchedule(Request $request)
     {
         $date = $request->get('date', date('Y-m-d'));
@@ -158,6 +190,14 @@ class ScheduleController extends Controller
             'notes' => $request->notes
         ]);
 
+        $this->scheduleGenerator->sendScheduleEmails(
+            $schedule->employee->store_id,
+            $schedule->month,
+            $schedule->year,
+            $request->user()->name
+        );
+
+
         return response()->json([
             'success' => true,
             'message' => 'Jadwal berhasil diupdate',
@@ -180,7 +220,7 @@ class ScheduleController extends Controller
 
         $creatorId = $request->user()->id ?? null;
 
-        $service = app(\App\Services\ScheduleGeneratorService::class);
+        $service = $this->scheduleGenerator;
         $result = $service->insertManualSchedules(
             $validated['schedules'],
             $validated['store_id'],
@@ -188,10 +228,86 @@ class ScheduleController extends Controller
             $validated['year'],
             $creatorId
         );
+        $this->scheduleGenerator->sendScheduleEmails(
+            $validated['store_id'],
+            $validated['month'],
+            $validated['year'],
+            $request->user()->name
+        );
 
         return response()->json([
             'message' => 'Jadwal berhasil disimpan',
             'result' => $result,
+        ]);
+    }
+
+    public function resetSchedule(Request $request)
+    {
+        $validated = $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'store_id' => 'required|exists:stores,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2023',
+        ]);
+        $services = $this->scheduleGenerator;
+        $deleted =  $services->resetEmployeeSchedule($validated);
+
+        return response()->json([
+            'message' => "Berhasil reset $deleted jadwal.",
+            'deleted_count' => $deleted
+        ]);
+    }
+
+    public function resetAllSchedules(Request $request)
+    {
+        $validated = $request->validate([
+            'store_id' => 'required|exists:stores,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2023',
+        ]);
+
+        $deleted = $this->scheduleGenerator
+            ->resetAllSchedulesByStore($validated);
+
+        return response()->json([
+            'message' => "Berhasil reset semua jadwal ($deleted data).",
+            'deleted_count' => $deleted
+        ]);
+    }
+
+    public function shiftSummary()
+    {
+        // Per employee: join ke employees untuk dapat nama dan NIK
+        $shiftPerEmployee = DB::table('schedules')
+            ->join('employees', 'schedules.employee_id', '=', 'employees.id')
+            ->select(
+                'employees.nik',
+                'employees.name',
+                DB::raw('COUNT(schedules.id) as total_shifts')
+            )
+            ->groupBy('employees.nik', 'employees.name')
+            ->groupBy('employees.nik', 'employees.name')
+            ->get();
+
+        // Per tanggal
+        $shiftPerDate = DB::table('schedules')
+            ->select('schedule_date', DB::raw('COUNT(*) as total_shifts'))
+            ->groupBy('schedule_date')
+            ->orderBy('schedule_date')
+            ->get();
+
+        // Per toko
+        $shiftPerStore = DB::table('schedules')
+            ->join('employees', 'schedules.employee_id', '=', 'employees.id')
+            ->join('stores', 'employees.store_id', '=', 'stores.id')
+            ->select('stores.store_name', DB::raw('COUNT(schedules.id) as total_shifts'))
+            ->groupBy('stores.store_name')
+            ->get();
+
+        return response()->json([
+            'per_employee' => $shiftPerEmployee,
+            'per_date' => $shiftPerDate,
+            'per_store' => $shiftPerStore,
         ]);
     }
 }

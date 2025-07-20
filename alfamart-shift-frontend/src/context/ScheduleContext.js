@@ -42,6 +42,25 @@ export const ScheduleProvider = ({ children }) => {
             return response.json();
         },
 
+        getSchedules: async ({ store_id, month, year }) => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(
+                `${API_BASE_URL}/schedules/manual?store_id=${store_id}&year=${year}&month=${month}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch existing schedules');
+            }
+
+            return response.json();
+        },
+
 
         // Generate new schedule for a month
         generateSchedule: async (scheduleData) => {
@@ -111,6 +130,45 @@ export const ScheduleProvider = ({ children }) => {
             return response.json();
         },
 
+        resetSchedule: async (payload) => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/schedules/reset`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error('Gagal reset jadwal');
+            }
+
+            return response.json();
+        },
+
+        resetAllSchedules: async (payload) => {
+            console.log('📤 Payload reset-all:', payload);
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/schedules/reset-all`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('🛑 Server response:', errorText);
+                throw new Error('Gagal reset jadwal');
+            }
+
+            return response.json();
+        },
+
         // Get employees
         getEmployees: async () => {
             const token = localStorage.getItem('token'); // atau dari context auth
@@ -143,6 +201,23 @@ export const ScheduleProvider = ({ children }) => {
             return response.json();
         },
 
+        getShiftSummary: async () => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/reports/shift-summary`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Gagal fetch laporan shift');
+            }
+
+            return response.json();
+        },
+
+
         saveManualSchedule: async (payload) => {
             const token = localStorage.getItem('token');
             const response = await fetch(`${API_BASE_URL}/schedules/manual-save`, {
@@ -156,6 +231,22 @@ export const ScheduleProvider = ({ children }) => {
 
             if (!response.ok) {
                 throw new Error('Failed to save manual schedule');
+            }
+
+            return response.json();
+        },
+
+        getStores: async () => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/stores`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch stores');
             }
 
             return response.json();

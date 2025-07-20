@@ -1,16 +1,18 @@
 // ScheduleGenerator.jsx - Final version
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from 'react-query';
+import Swal from 'sweetalert2';
 import { useForm } from 'react-hook-form';
-import { useSchedule } from '@/context/ScheduleContext';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useSchedule } from '@/context';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ManualScheduleEditor } from './Molecules';
+import { generationOptions, autoSubOptions } from '@/commons'
 
 const ScheduleGenerator = ({ onClose }) => {
     const { scheduleAPI } = useSchedule();
+    const queryClient = useQueryClient();
     const { user } = useAuth();
-    console.log(user)
     const {
         register,
         handleSubmit,
@@ -22,8 +24,10 @@ const ScheduleGenerator = ({ onClose }) => {
             year: new Date().getFullYear(),
         }
     });
+    const [loadingStores, setLoadingStores] = useState(false);
+    const [stores, setStores] = useState([]);
+    const [selectedStore, setSelectedStore] = useState(user.store_id);
     const [manualSchedules, setManualSchedules] = useState([]);
-
     const [generationType, setGenerationType] = useState('auto');
     const [autoSubType, setAutoSubType] = useState('monthly');
     const [weeklyPattern, setWeeklyPattern] = useState({
@@ -36,22 +40,11 @@ const ScheduleGenerator = ({ onClose }) => {
         sunday: { P: 0, S: 0, M: 0, O: 4 },
     });
     const [shiftOptions, setShiftOptions] = useState([]);
-
+    const [resetting, setResetting] = useState(false);
     const month = watch('month');
     const year = watch('year');
 
-    const generationOptions = [
-        { id: 'auto', title: 'Otomatis', icon: '🤖', description: 'Generate otomatis sesuai aturan' },
-        { id: 'manual', title: 'Manual', icon: '✋', description: 'Isi jadwal secara manual' },
-        { id: 'hybrid', title: 'Hybrid', icon: '⚖️', description: 'Manual lalu auto-fill' }
-    ];
-
-    const autoSubOptions = [
-        { id: 'daily', title: 'Per Hari', description: 'Generate harian' },
-        { id: 'weekly', title: 'Per Minggu', description: 'Generate mingguan' },
-        { id: 'monthly', title: 'Per Bulan', description: 'Generate bulanan' },
-        { id: 'custom', title: 'Custom Range', description: 'Tentukan rentang' }
-    ];
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         const fetchShiftOptions = async () => {
@@ -68,7 +61,25 @@ const ScheduleGenerator = ({ onClose }) => {
         fetchShiftOptions();
     }, []);
 
+    useEffect(() => {
+        const fetchStores = async () => {
+            setLoadingStores(true);
+            try {
+                const res = await scheduleAPI.getStores();
+                setStores(res.data || []); // sesuaikan sama struktur response
+            } catch (err) {
+                toast.error('❌ Gagal ambil data toko');
+                console.error(err);
+            } finally {
+                setLoadingStores(false); // Selesai loading
+            }
+        };
+
+        fetchStores();
+    }, [scheduleAPI]);
+
     const shiftCodes = shiftOptions.map(shift => shift.shift_code);
+
     const onSubmit = async (formData) => {
         const isAuto = generationType === 'auto';
         const isWeekly = autoSubType === 'weekly';
@@ -80,17 +91,18 @@ const ScheduleGenerator = ({ onClose }) => {
                 ? 'hybrid'
                 : generationType;
 
-        // ⛔ CEK JIKA MANUAL & TIDAK ADA ISIAN
+        setLoading(true);
         if (generationType === 'manual') {
             if (manualSchedules.length === 0) {
                 toast.error('❌ Jadwal belum diisi');
+                setLoading(false);
                 return;
             }
 
             try {
                 // console.log('🟡 Payload:', manualSchedules);
                 await scheduleAPI.saveManualSchedule({
-                    store_id: user.store_id,
+                    store_id: selectedStore,
                     created_by: user.id,
                     month: Number(formData.month),
                     year: Number(formData.year),
@@ -98,18 +110,22 @@ const ScheduleGenerator = ({ onClose }) => {
                 });
 
                 toast.success('✅ Jadwal manual berhasil disimpan!');
+                setLoading(false);
                 onClose();
                 return;
             } catch (err) {
                 console.error(err);
+                setLoading(false);
                 toast.error('❌ Gagal simpan jadwal manual.');
                 return;
+            } finally {
+                setLoading(false); // stop loading
             }
         }
 
         // ✅ UNTUK MODE AUTO / HYBRID
         const payload = {
-            store_id: user.store_id,
+            store_id: selectedStore,
             generation_type: finalGenerationType,
         };
 
@@ -141,9 +157,66 @@ const ScheduleGenerator = ({ onClose }) => {
         }
     };
 
+    const handleResetAllSchedules = async () => {
+        const confirmed = await Swal.fire({
+            title: 'Reset Semua Jadwal?',
+            text: 'Semua jadwal bulan ini akan dihapus. Lanjutkan?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Ya, reset!'
+        });
+
+        if (confirmed.isConfirmed) {
+            setResetting(true); // Mulai overlay
+            try {
+                await scheduleAPI.resetAllSchedules({
+                    store_id: user.store_id,
+                    month: Number(month),
+                    year: Number(year),
+                });
+                toast.success('✅ Semua jadwal berhasil direset.');
+                queryClient.invalidateQueries(['manualSchedules', user.store_id, Number(year), Number(month)]);
+            } catch (err) {
+                console.error(err);
+                toast.error('❌ Gagal reset semua jadwal.');
+            } finally {
+                setResetting(false); // Selesai overlay
+            }
+        }
+    };
 
     return (
         <div className="space-y-6">
+            <div className="relative">
+                {/* Overlay loading full layar */}
+                {loading && (
+                    <div className="fixed inset-0 bg-white bg-opacity-80 z-50 flex items-center justify-center">
+                        <svg
+                            className="animate-spin h-10 w-10 text-blue-600"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                            />
+                            <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8z"
+                            />
+                        </svg>
+                        <span className="sr-only">Loading...</span>
+                    </div>
+                )}
+            </div>
             {/* Pilihan Jenis Generator */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {generationOptions.map(opt => (
@@ -163,11 +236,39 @@ const ScheduleGenerator = ({ onClose }) => {
                 ))}
             </div>
 
+            {(loadingStores || stores.length > 1) && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Toko</label>
+                    {loadingStores ? (
+                        <div className="flex items-center gap-2 text-gray-500 text-sm">
+                            <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            </svg>
+                            Memuat data toko...
+                        </div>
+                    ) : (
+                        <select
+                            value={selectedStore}
+                            onChange={(e) => setSelectedStore(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        >
+                            {stores.map((store) => (
+                                <option key={store.id} value={store.id}>
+                                    {store.store_name} ({store.store_code})
+                                </option>
+                            ))}
+                        </select>
+                    )}
+                </div>
+            )}
+
+
             {generationType === 'manual' && (
                 <ManualScheduleEditor
                     month={month}
                     year={year}
-                    storeId={user.store_id}
+                    storeId={selectedStore}
                     onChange={setManualSchedules}
                 />
             )}
@@ -180,10 +281,20 @@ const ScheduleGenerator = ({ onClose }) => {
                 </div>
             )}
 
+            {generationType === 'hybrid' && (
+                <ManualScheduleEditor
+                    storeId={selectedStore}
+                    month={month}
+                    year={year}
+                    onChange={setManualSchedules}
+
+                />
+            )}
+
             {/* Sub Pilihan Otomatis */}
-            {generationType === 'auto' && (
+            {['auto', 'hybrid'].includes(generationType) && (
                 <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-3">Pilih Tipe Otomatis:</h4>
+                    <h4 className="font-medium text-blue-900 mb-3">Pilih Tipe {generationType === 'auto' ? 'Otomatis' : 'Hybrid'}:</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {autoSubOptions.map(opt => (
                             <button
@@ -202,6 +313,7 @@ const ScheduleGenerator = ({ onClose }) => {
                     </div>
                 </div>
             )}
+
 
             {/* Input Per Bulan */}
             {(autoSubType === 'monthly' || generationType !== 'auto') && (
@@ -234,7 +346,7 @@ const ScheduleGenerator = ({ onClose }) => {
             )}
 
             {/* Input Range Tanggal untuk Daily / Weekly / Custom */}
-            {generationType === 'auto' && ['daily', 'weekly', 'custom'].includes(autoSubType) && (
+            {['auto', 'hybrid'].includes(generationType) && ['daily', 'weekly', 'custom'].includes(autoSubType) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai</label>
@@ -258,7 +370,7 @@ const ScheduleGenerator = ({ onClose }) => {
             )}
 
             {/* Weekly Pattern Editor */}
-            {generationType === 'auto' && autoSubType === 'weekly' && (
+            {['auto', 'hybrid'].includes(generationType) && autoSubType === 'weekly' && (
                 <div className="overflow-x-auto border rounded-lg p-3">
                     <h4 className="font-semibold mb-2 text-gray-700">Atur Jumlah Shift per Hari:</h4>
                     <table className="min-w-full text-sm text-center">
@@ -309,11 +421,54 @@ const ScheduleGenerator = ({ onClose }) => {
                 <button
                     type="button"
                     onClick={handleSubmit(onSubmit)}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50"
+                    disabled={loading}
+                    className={`flex-1 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 flex justify-center items-center gap-2`}
                 >
+                    {loading && (
+                        <svg
+                            className="animate-spin h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                            />
+                            <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8z"
+                            />
+                        </svg>
+                    )}
                     Generate Jadwal
                 </button>
+
+                <button
+                    type="button"
+                    onClick={handleResetAllSchedules}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                    Reset Semua Jadwal
+                </button>
             </div>
+
+            {resetting && (
+                <div className="fixed inset-0 bg-white bg-opacity-80 z-50 flex items-center justify-center">
+                    <div className="text-center">
+                        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        <p className="text-sm text-gray-700">Sedang mereset semua jadwal...</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
