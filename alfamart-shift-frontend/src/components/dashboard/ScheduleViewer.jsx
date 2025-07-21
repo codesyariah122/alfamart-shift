@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useSchedule } from '@/context';
+import { useSchedule, useAuth } from '@/context';
 import clsx from 'clsx';
 
 const ScheduleViewer = () => {
     const { scheduleAPI } = useSchedule();
+    const { user } = useAuth();
     const today = new Date();
     const [year, setYear] = useState(today.getFullYear());
     const [month, setMonth] = useState(today.getMonth());
@@ -11,13 +12,22 @@ const ScheduleViewer = () => {
     const [createdBy, setCreatedBy] = useState(null);
     const [loading, setLoading] = useState(false);
     const [stores, setStores] = useState([]);
+    const [selectedStoreId, setSelectedStoreId] = useState(user?.store_id || '');
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const [loadingStore, setLoadingStore] = useState(true);
 
     const fetchSchedule = async () => {
         try {
+            if (!selectedStoreId) return;
             setLoading(true);
-            const result = await scheduleAPI.getSchedulesByMonth(year, month);
+            const result = await scheduleAPI.getScheduleLists({
+                store_id: selectedStoreId,
+                year,
+                month: month + 1,
+            });
+
+            console.log('Fetched schedule data:', JSON.stringify(result.data, null, 2));
             setData(result.data);
             setCreatedBy(result.created_by);
         } catch (err) {
@@ -28,21 +38,32 @@ const ScheduleViewer = () => {
     };
 
     useEffect(() => {
-        fetchSchedule();
-    }, [year, month]);
+        if (user?.store_id && !selectedStoreId) {
+            setSelectedStoreId(user.store_id);
+        }
+    }, [user, selectedStoreId]);
+
+    useEffect(() => {
+        if (selectedStoreId) {
+            fetchSchedule();
+        }
+    }, [year, month, selectedStoreId]);
 
     useEffect(() => {
         const fetchStores = async () => {
+            setLoadingStore(true); // mulai loading
             try {
                 const data = await scheduleAPI.getStores();
                 setStores(data.data || []);
             } catch (err) {
                 console.error(err.message);
+            } finally {
+                setLoadingStore(false); // selesai loading
             }
         };
 
         fetchStores();
-    }, []);
+    }, [scheduleAPI]);
 
     const getShiftColor = (code) => {
         switch (code) {
@@ -57,6 +78,22 @@ const ScheduleViewer = () => {
         <div className="space-y-6">
             {/* Filter */}
             <div className="flex gap-4 items-end">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Store</label>
+                    <select
+                        value={selectedStoreId}
+                        onChange={(e) => setSelectedStoreId(e.target.value)}
+                        className="border rounded p-2"
+                        disabled={loadingStore} // ⬅️ disable saat loading
+                    >
+                        <option value="">{loadingStore ? 'Memuat Store...' : 'Pilih Store'}</option>
+                        {!loadingStore && stores.map(store => (
+                            <option key={store.id} value={store.id}>
+                                {store.store_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Bulan</label>
                     <select
@@ -110,14 +147,14 @@ const ScheduleViewer = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {data &&
+                            {typeof data === 'object' &&
                                 Object.values(data).map(({ employee, schedule }) => (
                                     <tr key={employee.id} className="hover:bg-gray-50">
                                         <td className="border px-3 py-2 text-left bg-white sticky left-0 z-10">
                                             {employee.name}
                                         </td>
                                         {dayNumbers.map(day => {
-                                            const shiftCode = schedule[day]?.shift?.shift_code || '-';
+                                            const shiftCode = schedule?.[day]?.shift?.shift_code || '-';
                                             return (
                                                 <td
                                                     key={day}
@@ -125,7 +162,7 @@ const ScheduleViewer = () => {
                                                         'border px-2 py-1 font-semibold rounded',
                                                         getShiftColor(shiftCode)
                                                     )}
-                                                    title={schedule[day]?.shift?.shift_name || 'Tidak ada shift'}
+                                                    title={schedule?.[day]?.shift?.shift_name || 'Tidak ada shift'}
                                                 >
                                                     {shiftCode}
                                                 </td>

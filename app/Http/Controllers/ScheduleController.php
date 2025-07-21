@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use App\Models\{Employee, Schedule, Shift};
 use App\Services\ScheduleGeneratorService;
@@ -80,7 +81,7 @@ class ScheduleController extends Controller
     {
         $month = $request->get('month', date('n'));
         $year = $request->get('year', date('Y'));
-        $storeId = $request->user()->store_id;
+        $storeId = $request->get('store_id') ?? $request->user()->store_id;
 
         $employees = Employee::where('store_id', $storeId)
             ->where('status', 'active')
@@ -99,10 +100,20 @@ class ScheduleController extends Controller
                 }
             }
             $scheduleData[$employee->id] = [
-                'employee' => $employee,
+                'employee' => [
+                    'id' => $employee->id,
+                    'name' => $employee->name,
+                ],
                 'schedule' => $employee->schedules
                     ->filter(fn($s) => !empty($s->schedule_date) && strtotime($s->schedule_date))
-                    ->keyBy(fn($s) => date('j', strtotime($s->schedule_date))),
+                    ->keyBy(fn($s) => date('j', strtotime($s->schedule_date)))
+                    ->map(fn($s) => [
+                        'shift' => [
+                            'shift_code' => $s->shift?->shift_code,
+                            'shift_name' => $s->shift?->shift_name,
+                        ],
+                    ])
+                    ->toArray(), // 🔴 INI PENTING
             ];
         }
 
@@ -149,6 +160,55 @@ class ScheduleController extends Controller
 
         return response()->json($result);
     }
+
+    // public function getManualSchedule(Request $request)
+    // {
+    //     $storeId = $request->query('store_id');
+    //     $month = $request->query('month');
+    //     $year = $request->query('year');
+
+    //     if (!$storeId || !$month || !$year) {
+    //         return response()->json(['error' => 'Parameter tidak lengkap'], 400);
+    //     }
+
+    //     $employees = Employee::where('store_id', $storeId)
+    //         ->where('status', 'active')
+    //         ->get();
+
+    //     $schedules = Schedule::whereYear('schedule_date', $year)
+    //         ->whereMonth('schedule_date', $month)
+    //         ->where('store_id', $storeId)
+    //         ->with('shift')
+    //         ->get();
+
+    //     $grouped = [];
+
+    //     foreach ($employees as $employee) {
+    //         $filtered = $schedules->where('employee_id', $employee->id);
+    //         $scheduleMap = [];
+
+    //         foreach ($filtered as $s) {
+    //             $day = date('j', strtotime($s->schedule_date));
+    //             $scheduleMap[$day] = [
+    //                 'shift' => [
+    //                     'shift_code' => $s->shift->shift_code ?? '-',
+    //                     'shift_name' => $s->shift->shift_name ?? '-'
+    //                 ]
+    //             ];
+    //         }
+
+    //         $grouped[$employee->id] = [
+    //             'employee' => $employee,
+    //             'schedule' => $scheduleMap,
+    //         ];
+    //     }
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'data' => $grouped,
+    //         'created_by' => null
+    //     ]);
+    // }
 
 
     public function getDailySchedule(Request $request)

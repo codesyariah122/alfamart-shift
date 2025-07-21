@@ -61,6 +61,24 @@ export const ScheduleProvider = ({ children }) => {
             return response.json();
         },
 
+        getScheduleLists: async ({ store_id, month, year }) => {
+            const token = localStorage.getItem('token');
+            const response = await fetch(
+                `${API_BASE_URL}/schedules?store_id=${store_id}&year=${year}&month=${month}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch existing schedules');
+            }
+
+            return response.json();
+        },
 
         // Generate new schedule for a month
         generateSchedule: async (scheduleData) => {

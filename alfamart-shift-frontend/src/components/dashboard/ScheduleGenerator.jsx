@@ -26,7 +26,7 @@ const ScheduleGenerator = ({ onClose }) => {
     });
     const [loadingStores, setLoadingStores] = useState(false);
     const [stores, setStores] = useState([]);
-    const [selectedStore, setSelectedStore] = useState(user.store_id);
+    const [selectedStore, setSelectedStore] = useState(1);
     const [manualSchedules, setManualSchedules] = useState([]);
     const [generationType, setGenerationType] = useState('auto');
     const [autoSubType, setAutoSubType] = useState('monthly');

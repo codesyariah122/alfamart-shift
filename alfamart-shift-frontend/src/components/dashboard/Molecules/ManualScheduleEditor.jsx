@@ -12,10 +12,8 @@ const ManualScheduleEditor = ({ month, year, storeId, onChange }) => {
     const [shiftOptions, setShiftOptions] = useState([]);
     const [showOnlyEmpty, setShowOnlyEmpty] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    // Ambil daftar shift
     useEffect(() => {
         const fetchShiftOptions = async () => {
             try {
@@ -29,7 +27,6 @@ const ManualScheduleEditor = ({ month, year, storeId, onChange }) => {
         fetchShiftOptions();
     }, []);
 
-    // Ambil data karyawan dan jadwal
     useEffect(() => {
         const fetchEmployeesAndSchedules = async () => {
             setIsLoading(true);
@@ -139,13 +136,15 @@ const ManualScheduleEditor = ({ month, year, storeId, onChange }) => {
         }
     };
 
+    const filteredEmployees = employees
+        .filter(emp => emp.store?.id === Number(storeId))
+        .filter(emp => {
+            if (!showOnlyEmpty) return true;
 
-    const filteredEmployees = employees.filter(emp => {
-        if (!showOnlyEmpty) return true;
-        const empSchedule = schedules[emp.id] || {};
-        const isFilled = Object.values(empSchedule).some(v => v);
-        return !isFilled;
-    });
+            const empSchedule = schedules[emp.id] || {};
+            const isFilled = Object.values(empSchedule).some(v => v);
+            return !isFilled;
+        });
 
     return (
         <div className="space-y-4 relative z-10">
