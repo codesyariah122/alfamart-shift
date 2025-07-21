@@ -147,7 +147,7 @@ const ScheduleViewer = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {typeof data === 'object' &&
+                            {data && typeof data === 'object' &&
                                 Object.values(data).map(({ employee, schedule }) => (
                                     <tr key={employee.id} className="hover:bg-gray-50">
                                         <td className="border px-3 py-2 text-left bg-white sticky left-0 z-10">
