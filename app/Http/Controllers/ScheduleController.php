@@ -51,6 +51,9 @@ class ScheduleController extends Controller
 
             $weeklyPattern = $request->input('weekly_pattern', []); // ⬅️ ambil dari request
 
+            $dayOfWeek = $request->input('dayOfWeek'); // string 'monday' dst
+            $dayOfMonth = $request->input('dayOfMonth') ? intval($request->input('dayOfMonth')) : null;
+
             $result = $this->scheduleGenerator->generateSchedule(
                 $storeId,
                 $month,
@@ -59,7 +62,9 @@ class ScheduleController extends Controller
                 $from,
                 $to,
                 $request->user()->id,
-                $weeklyPattern // ⬅️ oper ke service
+                $weeklyPattern,
+                $dayOfWeek,
+                $dayOfMonth
             );
 
             $this->scheduleGenerator->sendScheduleEmails($storeId, $month, $year, $request->user()->name);

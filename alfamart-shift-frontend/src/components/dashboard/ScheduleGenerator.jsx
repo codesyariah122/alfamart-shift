@@ -125,11 +125,9 @@ const ScheduleGenerator = ({ onClose }) => {
                 return;
             } catch (err) {
                 console.error(err);
-                setLoading(false);
                 toast.error('❌ Gagal simpan jadwal manual.');
-                return;
-            } finally {
                 setLoading(false);
+                return;
             }
         }
 
@@ -150,9 +148,17 @@ const ScheduleGenerator = ({ onClose }) => {
                 payload.dayOfWeekInWeek = Number(formData.dayOfWeekInWeek);
                 payload.weekly_pattern = weeklyPattern;
             } else if (['daily', 'custom'].includes(autoSubType)) {
-                payload.from = formData.startDate;
-                payload.to = formData.endDate;
+                // Pastikan selalu kirim month & year
+                payload.month = Number(formData.month);
+                payload.year = Number(formData.year);
+
+                if (autoSubType === 'custom') {
+                    payload.from = formData.startDate;
+                    payload.to = formData.endDate;
+                }
+
                 if (autoSubType === 'daily') {
+                    console.log("kesini")
                     payload.dayOfWeek = formData.dayOfWeek || null;
                     payload.dayOfMonth = formData.dayOfMonth ? Number(formData.dayOfMonth) : null;
                 }
@@ -174,6 +180,7 @@ const ScheduleGenerator = ({ onClose }) => {
             setLoading(false);
         }
     };
+
 
     const handleResetAllSchedules = async () => {
         const confirmed = await Swal.fire({
@@ -343,6 +350,69 @@ const ScheduleGenerator = ({ onClose }) => {
                             ))}
                         </select>
                         {errors.month && <p className="text-sm text-red-600">{errors.month.message}</p>}
+
+                        {/* Pilihan Minggu (1-5) hanya untuk weekly */}
+                        {autoSubType === 'weekly' && (
+                            <>
+                                <label className="block text-sm font-medium text-gray-700 mt-4 mb-2">Minggu</label>
+                                <select
+                                    {...register('weekOfMonth', { required: 'Minggu harus dipilih' })}
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                >
+                                    {[1, 2, 3, 4, 5].map(n => (
+                                        <option key={n} value={n}>Minggu {n}</option>
+                                    ))}
+                                </select>
+                                {errors.weekOfMonth && <p className="text-sm text-red-600">{errors.weekOfMonth.message}</p>}
+                            </>
+                        )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                        <input
+                            type="number"
+                            {...register('year', { required: 'Tahun harus diisi', min: 2024, max: 2030 })}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        />
+                        {errors.year && <p className="text-sm text-red-600">{errors.year.message}</p>}
+
+                        {/* Pilihan tanggal dalam minggu (1-5) hanya untuk weekly */}
+                        {autoSubType === 'weekly' && (
+                            <>
+                                <label className="block text-sm font-medium text-gray-700 mt-4 mb-2">Tanggal (Minggu 1: Tanggal 1-5)</label>
+                                <select
+                                    {...register('dayOfWeekInWeek', { required: 'Tanggal harus dipilih' })}
+                                    className="w-full px-3 py-2 border rounded-lg"
+                                >
+                                    {[1, 2, 3, 4, 5].map(n => (
+                                        <option key={n} value={n}>{n}</option>
+                                    ))}
+                                </select>
+                                {errors.dayOfWeekInWeek && <p className="text-sm text-red-600">{errors.dayOfWeekInWeek.message}</p>}
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+
+            {/* Pilihan Hari dan Tanggal khusus untuk autoSubType daily */}
+            {generationType === 'auto' && autoSubType === 'daily' && (
+                <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bulan</label>
+                        <select
+                            {...register('month', { required: 'Bulan harus dipilih' })}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        >
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(0, i).toLocaleString('id-ID', { month: 'long' })}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.month && <p className="text-sm text-red-600">{errors.month.message}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
@@ -353,12 +423,6 @@ const ScheduleGenerator = ({ onClose }) => {
                         />
                         {errors.year && <p className="text-sm text-red-600">{errors.year.message}</p>}
                     </div>
-                </div>
-            )}
-
-            {/* Pilihan Hari dan Tanggal khusus untuk autoSubType daily */}
-            {generationType === 'auto' && autoSubType === 'daily' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Hari (Senin - Minggu)</label>
                         <select
@@ -394,9 +458,8 @@ const ScheduleGenerator = ({ onClose }) => {
             )}
 
 
-
             {/* Input Range Tanggal untuk Daily / Weekly / Custom */}
-            {['auto', 'hybrid'].includes(generationType) && ['daily', 'weekly', 'custom'].includes(autoSubType) && (
+            {['auto', 'hybrid'].includes(generationType) && ['custom'].includes(autoSubType) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Mulai</label>

@@ -10,8 +10,18 @@ use App\Mail\ScheduleGeneratedMail;
 
 class ScheduleGeneratorService
 {
-    public function generateSchedule($storeId, $month, $year, $generationType, $from = null, $to = null, $createdBy, $weeklyPattern = [])
-    {
+    public function generateSchedule(
+        $storeId,
+        $month,
+        $year,
+        $generationType,
+        $from = null,
+        $to = null,
+        $createdBy,
+        $weeklyPattern = [],
+        $dayOfWeek = null,
+        $dayOfMonth = null
+    ) {
         $store = Store::findOrFail($storeId);
         $employees = Employee::where('store_id', $storeId)->where('status', 'active')->get();
         $shifts = Shift::all();
@@ -48,6 +58,15 @@ class ScheduleGeneratorService
             }
         } else {
             foreach (CarbonPeriod::create($fromDate, $toDate) as $date) {
+                // Jika daily filter aktif, cek tanggal hari dan tanggal
+                if ($generationType === 'auto' && $dayOfWeek !== null && $dayOfMonth !== null) {
+                    // Nama hari bahasa Inggris lowercase, contoh 'monday', 'tuesday'
+                    $dayName = strtolower($date->format('l'));
+                    if ($dayName !== strtolower($dayOfWeek) || $date->day !== (int)$dayOfMonth) {
+                        continue; // skip tanggal ini karena tidak cocok filter daily
+                    }
+                }
+
                 $result = $this->assignShiftsForDate($storeId, $date, $employees, $shifts, $store, $generationType, $createdBy);
                 $schedules = array_merge($schedules, $result);
             }
@@ -118,48 +137,126 @@ class ScheduleGeneratorService
 
     private function assignShiftsForDate($storeId, $date, $employees, $shifts, $store, $generationType, $createdBy = null)
     {
-        $available = $employees->shuffle();
-        $assigned = collect();
+        // Filter kecuali user admin (asumsi ada role di Employee, misal 'role')
+        $employees = $employees->filter(fn($emp) => $emp->role !== 'admin');
 
+        $available = $employees->shuffle();
+
+        // Pisah laki-laki dan perempuan
         $pria = $available->where('gender', 'male');
         $wanita = $available->where('gender', 'female');
 
-        $malam = $pria->take(2);
-        $assigned = $assigned->merge($malam);
-
-        $sisa = $available->diff($assigned)->shuffle();
-        $pagi = $sisa->take(3);
-        $assigned = $assigned->merge($pagi);
-
-        $sisa = $available->diff($assigned)->shuffle();
-        $siang = $sisa->take(3);
-        $assigned = $assigned->merge($siang);
-
-        $sisa = $available->diff($assigned)->shuffle();
-        $libur = $sisa->take(2);
-
-        $shiftP = $shifts->firstWhere('shift_code', 'P');
-        $shiftS = $shifts->firstWhere('shift_code', 'S');
-        $shiftM = $shifts->firstWhere('shift_code', 'M');
-        $shiftO = $shifts->firstWhere('shift_code', 'O');
+        // Ambil shift master
+        $shiftP = $shifts->firstWhere('shift_code', 'P'); // Pagi
+        $shiftS = $shifts->firstWhere('shift_code', 'S'); // Siang
+        $shiftM = $shifts->firstWhere('shift_code', 'M'); // Malam
+        $shiftO = $shifts->firstWhere('shift_code', 'O'); // Libur
 
         $allSchedules = [];
 
-        foreach ($pagi as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftP, $date, $generationType, $createdBy, $storeId);
-        }
-        foreach ($siang as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftS, $date, $generationType, $createdBy, $storeId);
-        }
-        foreach ($malam as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftM, $date, $generationType, $createdBy, $storeId);
-        }
-        foreach ($libur as $emp) {
-            $allSchedules[] = $this->createScheduleRow($emp, $shiftO, $date, $generationType, $createdBy, $storeId);
+        // Aturan khusus toko 24 jam
+        if ($store->store_type === '24h') {
+            // Jumlah shift tiap hari sesuai aturan 24h
+            // 3 pagi (termasuk COS/ACOS), 3 siang, 2 malam, 2 libur (total 10)
+
+            // Cek kalau karyawan kurang dari 10, tetap coba distribusi proporsional
+
+            $totalEmployees = $available->count();
+
+            $numPagi = min(3, $totalEmployees);
+            $numSiang = min(3, $totalEmployees - $numPagi);
+            $numMalam = min(2, $totalEmployees - $numPagi - $numSiang);
+            $numLibur = min(2, $totalEmployees - $numPagi - $numSiang - $numMalam);
+
+            // Ambil laki laki dan perempuan
+            $malam = $pria->take($numMalam);
+            $assigned = collect($malam);
+
+            // Sisanya di pagi dan siang
+            $sisa = $available->diff($assigned)->shuffle();
+
+            // Sebelum libur: jika hari sebelum libur (misal kemarin libur), aturan: masuk pagi
+            // Setelah libur: perempuan masuk siang, laki-laki masuk malam
+            // Ini kompleks, kita buat aturan sederhana dulu:
+
+            // Cek hari sebelumnya libur (cek jadwal kemarin)
+            $yesterday = $date->copy()->subDay();
+            $schedulesYesterday = Schedule::where('store_id', $storeId)
+                ->where('schedule_date', $yesterday->toDateString())
+                ->get();
+
+            $yesterdayLiburIds = $schedulesYesterday->where('shift_id', $shiftO->id)->pluck('employee_id')->toArray();
+
+            // Jika karyawan masuk libur kemarin, hari ini masuk shift pagi (atau sesuai gender)
+            // Jadi kalau kemarin libur, hari ini masuk pagi, kalau tidak libur, shift lain
+
+            // Sederhanakan logika untuk contoh ini:
+
+            // Assign pagi 3 orang (termasuk COS/ACOS)
+            $pagiCandidates = $sisa->filter(fn($emp) => true);
+            $pagi = $pagiCandidates->take($numPagi);
+            $assigned = $assigned->merge($pagi);
+
+            // Sisanya untuk siang dan libur
+            $sisa = $available->diff($assigned)->shuffle();
+
+            $siang = $sisa->take($numSiang);
+            $assigned = $assigned->merge($siang);
+
+            $libur = $available->diff($assigned)->take($numLibur);
+
+            // Penyesuaian: perempuan tidak mendapat malam, sudah di malam hanya laki-laki
+
+            foreach ($pagi as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftP, $date, $generationType, $createdBy, $storeId);
+            }
+            foreach ($siang as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftS, $date, $generationType, $createdBy, $storeId);
+            }
+            foreach ($malam as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftM, $date, $generationType, $createdBy, $storeId);
+            }
+            foreach ($libur as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftO, $date, $generationType, $createdBy, $storeId);
+            }
+        } else {
+            // Toko regular
+            // 2 pagi, 2 siang, 1/2 libur, total 5-6 karyawan
+
+            $totalEmployees = $available->count();
+
+            $numPagi = min(2, $totalEmployees);
+            $numSiang = min(2, $totalEmployees - $numPagi);
+            $numLibur = min(1, $totalEmployees - $numPagi - $numSiang);
+
+            $pagi = $available->take($numPagi);
+            $assigned = collect($pagi);
+
+            $sisa = $available->diff($assigned)->shuffle();
+
+            $siang = $sisa->take($numSiang);
+            $assigned = $assigned->merge($siang);
+
+            $libur = $available->diff($assigned)->take($numLibur);
+
+            // Aturan: sebelum libur masuk pagi, setelah libur masuk siang
+
+            // Bisa ditambah logika cek tanggal dan jadwal kemarin kalau perlu
+
+            foreach ($pagi as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftP, $date, $generationType, $createdBy, $storeId);
+            }
+            foreach ($siang as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftS, $date, $generationType, $createdBy, $storeId);
+            }
+            foreach ($libur as $emp) {
+                $allSchedules[] = $this->createScheduleRow($emp, $shiftO, $date, $generationType, $createdBy, $storeId);
+            }
         }
 
         return $allSchedules;
     }
+
 
 
     private function createScheduleRow($employee, $shift, $date, $generationType, $createdBy = null, $storeId)
