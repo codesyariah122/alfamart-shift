@@ -2,13 +2,10 @@
 // routes/web.php
 
 use Illuminate\Support\Facades\Route;
-use App\Mail\EmployeeActivationMail;
-use Illuminate\Support\Facades\Mail;
-use App\Models\Employee;
 use App\Http\Controllers\{EmployeeController};
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->json(['message' => 'Welcome to Alfamart Shift System API']);
 });
 
 Route::get('/activate/{token}', [EmployeeController::class, 'activateEmployee']);

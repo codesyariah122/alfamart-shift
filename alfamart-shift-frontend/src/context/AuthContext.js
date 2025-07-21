@@ -144,6 +144,27 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const changePassword = async ({ old_password, password, password_confirmation }) => {
+        try {
+            const response = await api.post('/auth/change-password', {
+                old_password,
+                password,
+                password_confirmation,
+            });
+            return {
+                success: true,
+                message: response.data?.message || 'Password berhasil diubah',
+            };
+        } catch (error) {
+            console.error('Change password error:', error.response?.data);
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Gagal mengubah password',
+                errors: error.response?.data?.errors,
+            };
+        }
+    };
+
 
 
     const logout = () => {
@@ -161,6 +182,7 @@ export const AuthProvider = ({ children }) => {
                 setPassword,
                 forgotPassword,
                 setNewPassword,
+                changePassword,
             }}
         >
             {children}

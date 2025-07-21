@@ -178,4 +178,37 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password berhasil diubah']);
     }
+
+
+    public function changePassword(Request $request)
+    {
+        /** @var Employee $employee */
+        $employee = Auth::user();
+
+        if (!$employee) {
+            return response()->json(['message' => 'User tidak ditemukan.'], 404);
+        }
+
+        // Validasi input
+        $validator = Validator::make($request->all(), [
+            'old_password' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if (!Hash::check($request->old_password, $employee->password)) {
+            return response()->json(['message' => 'Password lama tidak cocok.'], 422);
+        }
+
+        $employee->password = bcrypt($request->password);
+        $employee->save();
+
+        return response()->json(['message' => 'Password berhasil diubah.']);
+    }
 }

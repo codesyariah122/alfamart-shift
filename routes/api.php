@@ -64,4 +64,9 @@ Route::middleware(['auth:sanctum', 'role:admin,cos,acos'])->group(function () {
     Route::post('/schedules/reset', [ScheduleController::class, 'reset']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
     Route::post('/employees/{id}/reset-password', [EmployeeController::class, 'resetPassword']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+
+    // Reset password by NIK
+    Route::post('/employees/find-by-nik', [EmployeeController::class, 'findEmployeeByNik']);
+    Route::post('/employees/reset-password', [EmployeeController::class, 'resetPasswordByNik']);
 });

@@ -66,12 +66,12 @@ const ScheduleGenerator = ({ onClose }) => {
             setLoadingStores(true);
             try {
                 const res = await scheduleAPI.getStores();
-                setStores(res.data || []); // sesuaikan sama struktur response
+                setStores(res.data || []);
             } catch (err) {
                 toast.error('❌ Gagal ambil data toko');
                 console.error(err);
             } finally {
-                setLoadingStores(false); // Selesai loading
+                setLoadingStores(false);
             }
         };
 

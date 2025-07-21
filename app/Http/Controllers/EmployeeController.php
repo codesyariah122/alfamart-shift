@@ -143,6 +143,50 @@ class EmployeeController extends Controller
         return redirect()->to($frontendUrl . '/set-password?email=' . urlencode($employee->email));
 
         // return response()->view('emails.activation_success', ['employee' => $employee]);
+    }
 
+    public function findEmployeeByNik(Request $request)
+    {
+        $request->validate([
+            'nik' => 'required|string',
+        ]);
+
+        $employee = Employee::where('nik', $request->nik)->first();
+
+        if (!$employee) {
+            return response()->json(['message' => 'Karyawan tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Karyawan ditemukan.',
+            'data' => [
+                'id' => $employee->id,
+                'nik' => $employee->nik,
+                'name' => $employee->name,
+                // tambahkan data lain yang ingin ditampilkan
+            ],
+        ]);
+    }
+
+
+    public function resetPasswordByNik(Request $request)
+    {
+        $request->validate([
+            'nik' => 'required|string|exists:employees,nik',
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $employee = Employee::where('nik', $request->nik)->first();
+
+        if (!$employee) {
+            return response()->json(['message' => 'Karyawan tidak ditemukan.'], 404);
+        }
+
+        $employee->password = bcrypt($request->password);
+        $employee->save();
+
+        return response()->json([
+            'message' => 'Password karyawan berhasil diubah.',
+        ]);
     }
 }

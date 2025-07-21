@@ -56,6 +56,17 @@ export const EmployeeProvider = ({ children }) => {
         await fetchEmployees();
     };
 
+    const resetEmployeePassword = async (nik) => {
+        try {
+            const res = await api.post(`/employees/reset-password`, { nik });
+            if (res.status !== 200 && res.status !== 201) throw new Error('Gagal reset password');
+            return res.data;
+        } catch (error) {
+            throw new Error(error.response?.data?.message || 'Terjadi kesalahan saat reset password');
+        }
+    };
+
+
     useEffect(() => {
         fetchEmployees();
         fetchStores();
@@ -72,6 +83,7 @@ export const EmployeeProvider = ({ children }) => {
                 addEmployee,
                 updateEmployee,
                 deleteEmployee,
+                resetEmployeePassword,
             }}
         >
             {children}
