@@ -86,9 +86,6 @@ class ScheduleGeneratorService
         return $allSchedules;
     }
 
-
-
-
     private function autoScheduleLogic($employee, $date, $shifts, $store)
     {
         $availableShifts = $shifts->filter(fn($shift) =>

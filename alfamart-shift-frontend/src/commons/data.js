@@ -97,3 +97,19 @@ export const autoSubOptions = [
     { id: 'monthly', title: 'Per Bulan', description: 'Generate bulanan' },
     { id: 'custom', title: 'Custom Range', description: 'Tentukan rentang' }
 ];
+
+export const generateCalendarHeader = (month, year) => {
+    const daysInMonth = new Date(year, month, 0).getDate(); // jumlah hari
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+    const result = [];
+    for (let date = 1; date <= daysInMonth; date++) {
+        const dayIndex = new Date(year, month - 1, date).getDay(); // 0-6
+        result.push({
+            date,
+            day: dayNames[dayIndex],
+        });
+    }
+
+    return result;
+};

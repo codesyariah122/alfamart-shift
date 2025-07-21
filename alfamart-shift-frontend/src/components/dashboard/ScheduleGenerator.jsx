@@ -1,4 +1,4 @@
-// ScheduleGenerator.jsx - Final version
+// ScheduleGenerator.jsx - Versi Revisi lengkap
 import React, { useState, useEffect } from 'react';
 import { useQueryClient } from 'react-query';
 import Swal from 'sweetalert2';
@@ -7,7 +7,7 @@ import { useAuth, useSchedule } from '@/context';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ManualScheduleEditor } from './Molecules';
-import { generationOptions, autoSubOptions } from '@/commons'
+import { generationOptions, autoSubOptions, generateCalendarHeader } from '@/commons'
 
 const ScheduleGenerator = ({ onClose }) => {
     const { scheduleAPI } = useSchedule();
@@ -22,8 +22,15 @@ const ScheduleGenerator = ({ onClose }) => {
         defaultValues: {
             month: new Date().getMonth() + 1,
             year: new Date().getFullYear(),
+            dayOfWeek: '',
+            dayOfMonth: '',
+            weekOfMonth: '',
+            dayOfWeekInWeek: '',
+            startDate: '',
+            endDate: ''
         }
     });
+
     const [loadingStores, setLoadingStores] = useState(false);
     const [stores, setStores] = useState([]);
     const [selectedStore, setSelectedStore] = useState(1);
@@ -67,6 +74,9 @@ const ScheduleGenerator = ({ onClose }) => {
             try {
                 const res = await scheduleAPI.getStores();
                 setStores(res.data || []);
+                if (res.data && res.data.length > 0) {
+                    setSelectedStore(res.data[0].id);
+                }
             } catch (err) {
                 toast.error('❌ Gagal ambil data toko');
                 console.error(err);
@@ -92,6 +102,7 @@ const ScheduleGenerator = ({ onClose }) => {
                 : generationType;
 
         setLoading(true);
+
         if (generationType === 'manual') {
             if (manualSchedules.length === 0) {
                 toast.error('❌ Jadwal belum diisi');
@@ -100,7 +111,6 @@ const ScheduleGenerator = ({ onClose }) => {
             }
 
             try {
-                // console.log('🟡 Payload:', manualSchedules);
                 await scheduleAPI.saveManualSchedule({
                     store_id: selectedStore,
                     created_by: user.id,
@@ -119,11 +129,11 @@ const ScheduleGenerator = ({ onClose }) => {
                 toast.error('❌ Gagal simpan jadwal manual.');
                 return;
             } finally {
-                setLoading(false); // stop loading
+                setLoading(false);
             }
         }
 
-        // ✅ UNTUK MODE AUTO / HYBRID
+        // MODE AUTO / HYBRID
         const payload = {
             store_id: selectedStore,
             generation_type: finalGenerationType,
@@ -133,13 +143,19 @@ const ScheduleGenerator = ({ onClose }) => {
             if (autoSubType === 'monthly') {
                 payload.month = Number(formData.month);
                 payload.year = Number(formData.year);
-            } else if (isCustomRange) {
+            } else if (autoSubType === 'weekly') {
+                payload.month = Number(formData.month);
+                payload.year = Number(formData.year);
+                payload.weekOfMonth = Number(formData.weekOfMonth);
+                payload.dayOfWeekInWeek = Number(formData.dayOfWeekInWeek);
+                payload.weekly_pattern = weeklyPattern;
+            } else if (['daily', 'custom'].includes(autoSubType)) {
                 payload.from = formData.startDate;
                 payload.to = formData.endDate;
-            }
-
-            if (isWeekly) {
-                payload.weekly_pattern = weeklyPattern;
+                if (autoSubType === 'daily') {
+                    payload.dayOfWeek = formData.dayOfWeek || null;
+                    payload.dayOfMonth = formData.dayOfMonth ? Number(formData.dayOfMonth) : null;
+                }
             }
         } else {
             payload.month = Number(formData.month);
@@ -154,6 +170,8 @@ const ScheduleGenerator = ({ onClose }) => {
         } catch (err) {
             console.error('❌ Gagal:', err);
             toast.error('❌ Gagal generate jadwal.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -169,7 +187,7 @@ const ScheduleGenerator = ({ onClose }) => {
         });
 
         if (confirmed.isConfirmed) {
-            setResetting(true); // Mulai overlay
+            setResetting(true);
             try {
                 await scheduleAPI.resetAllSchedules({
                     store_id: user.store_id,
@@ -182,15 +200,14 @@ const ScheduleGenerator = ({ onClose }) => {
                 console.error(err);
                 toast.error('❌ Gagal reset semua jadwal.');
             } finally {
-                setResetting(false); // Selesai overlay
+                setResetting(false);
             }
         }
     };
-
+    console.log('generationType:', generationType, 'autoSubType:', autoSubType);
     return (
         <div className="space-y-6">
             <div className="relative">
-                {/* Overlay loading full layar */}
                 {loading && (
                     <div className="fixed inset-0 bg-white bg-opacity-80 z-50 flex items-center justify-center">
                         <svg
@@ -217,6 +234,7 @@ const ScheduleGenerator = ({ onClose }) => {
                     </div>
                 )}
             </div>
+
             {/* Pilihan Jenis Generator */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {generationOptions.map(opt => (
@@ -250,7 +268,7 @@ const ScheduleGenerator = ({ onClose }) => {
                     ) : (
                         <select
                             value={selectedStore}
-                            onChange={(e) => setSelectedStore(e.target.value)}
+                            onChange={(e) => setSelectedStore(Number(e.target.value))}
                             className="w-full px-3 py-2 border rounded-lg"
                         >
                             {stores.map((store) => (
@@ -263,7 +281,6 @@ const ScheduleGenerator = ({ onClose }) => {
                 </div>
             )}
 
-
             {generationType === 'manual' && (
                 <ManualScheduleEditor
                     month={month}
@@ -273,22 +290,18 @@ const ScheduleGenerator = ({ onClose }) => {
                 />
             )}
 
-
-            {/* Keterangan khusus mode Hybrid */}
             {generationType === 'hybrid' && (
-                <div className="text-sm text-blue-600 mt-2">
-                    💡 Mode <strong>Hybrid</strong> akan mengisi otomatis hanya pada tanggal yang belum diisi secara manual.
-                </div>
-            )}
-
-            {generationType === 'hybrid' && (
-                <ManualScheduleEditor
-                    storeId={selectedStore}
-                    month={month}
-                    year={year}
-                    onChange={setManualSchedules}
-
-                />
+                <>
+                    <div className="text-sm text-blue-600 mt-2">
+                        💡 Mode <strong>Hybrid</strong> akan mengisi otomatis hanya pada tanggal yang belum diisi secara manual.
+                    </div>
+                    <ManualScheduleEditor
+                        storeId={selectedStore}
+                        month={month}
+                        year={year}
+                        onChange={setManualSchedules}
+                    />
+                </>
             )}
 
             {/* Sub Pilihan Otomatis */}
@@ -314,9 +327,8 @@ const ScheduleGenerator = ({ onClose }) => {
                 </div>
             )}
 
-
-            {/* Input Per Bulan */}
-            {(autoSubType === 'monthly' || generationType !== 'auto') && (
+            {/* Bulan dan Tahun untuk monthly, weekly, atau manual */}
+            {(autoSubType === 'monthly' || autoSubType === 'weekly' || generationType !== 'auto') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Bulan</label>
@@ -332,7 +344,6 @@ const ScheduleGenerator = ({ onClose }) => {
                         </select>
                         {errors.month && <p className="text-sm text-red-600">{errors.month.message}</p>}
                     </div>
-
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
                         <input
@@ -344,6 +355,45 @@ const ScheduleGenerator = ({ onClose }) => {
                     </div>
                 </div>
             )}
+
+            {/* Pilihan Hari dan Tanggal khusus untuk autoSubType daily */}
+            {generationType === 'auto' && autoSubType === 'daily' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Hari (Senin - Minggu)</label>
+                        <select
+                            {...register('dayOfWeek', { required: 'Hari harus dipilih' })}
+                            className="w-full px-3 py-2 border rounded-lg"
+                        >
+                            <option value="">-- Pilih Hari --</option>
+                            <option value="monday">Senin</option>
+                            <option value="tuesday">Selasa</option>
+                            <option value="wednesday">Rabu</option>
+                            <option value="thursday">Kamis</option>
+                            <option value="friday">Jumat</option>
+                            <option value="saturday">Sabtu</option>
+                            <option value="sunday">Minggu</option>
+                        </select>
+                        {errors.dayOfWeek && <p className="text-sm text-red-600">{errors.dayOfWeek.message}</p>}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal (1 - 31)</label>
+                        <input
+                            type="number"
+                            {...register('dayOfMonth', {
+                                required: 'Tanggal harus diisi',
+                                min: { value: 1, message: 'Minimal 1' },
+                                max: { value: 31, message: 'Maksimal 31' },
+                            })}
+                            placeholder="Contoh: 15"
+                            className="w-full px-3 py-2 border rounded-lg"
+                        />
+                        {errors.dayOfMonth && <p className="text-sm text-red-600">{errors.dayOfMonth.message}</p>}
+                    </div>
+                </div>
+            )}
+
+
 
             {/* Input Range Tanggal untuk Daily / Weekly / Custom */}
             {['auto', 'hybrid'].includes(generationType) && ['daily', 'weekly', 'custom'].includes(autoSubType) && (
@@ -369,106 +419,24 @@ const ScheduleGenerator = ({ onClose }) => {
                 </div>
             )}
 
-            {/* Weekly Pattern Editor */}
-            {['auto', 'hybrid'].includes(generationType) && autoSubType === 'weekly' && (
-                <div className="overflow-x-auto border rounded-lg p-3">
-                    <h4 className="font-semibold mb-2 text-gray-700">Atur Jumlah Shift per Hari:</h4>
-                    <table className="min-w-full text-sm text-center">
-                        <thead>
-                            <tr className="bg-gray-100">
-                                <th className="p-2">Hari</th>
-                                {shiftCodes.map(shift => (
-                                    <th key={shift} className="p-2">{shift}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {Object.entries(weeklyPattern).map(([day, shifts]) => (
-                                <tr key={day} className="border-t">
-                                    <td className="capitalize p-2 text-left">{day}</td>
-                                    {shiftCodes.map(code => (
-                                        <td key={code} className="p-1">
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                value={shifts[code]}
-                                                onChange={e => {
-                                                    const updated = { ...weeklyPattern };
-                                                    updated[day][code] = parseInt(e.target.value) || 0;
-                                                    setWeeklyPattern({ ...updated });
-                                                }}
-                                                className="w-16 px-1 py-1 border rounded text-center"
-                                            />
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* Tombol Aksi */}
-            <div className="flex gap-3">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                    Batal
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleSubmit(onSubmit)}
-                    disabled={loading}
-                    className={`flex-1 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 flex justify-center items-center gap-2`}
-                >
-                    {loading && (
-                        <svg
-                            className="animate-spin h-5 w-5 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                        >
-                            <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                            />
-                            <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8v8z"
-                            />
-                        </svg>
-                    )}
-                    Generate Jadwal
-                </button>
-
+            <div className="flex gap-4 justify-end mt-6">
                 <button
                     type="button"
                     onClick={handleResetAllSchedules}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                    disabled={resetting}
                 >
-                    Reset Semua Jadwal
+                    {resetting ? 'Resetting...' : 'Reset Semua Jadwal'}
+                </button>
+                <button
+                    type="button"
+                    onClick={handleSubmit(onSubmit)}
+                    className="px-6 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+                    disabled={loading}
+                >
+                    {loading ? 'Memproses...' : 'Generate Jadwal'}
                 </button>
             </div>
-
-            {resetting && (
-                <div className="fixed inset-0 bg-white bg-opacity-80 z-50 flex items-center justify-center">
-                    <div className="text-center">
-                        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                        </svg>
-                        <p className="text-sm text-gray-700">Sedang mereset semua jadwal...</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
