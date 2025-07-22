@@ -81,13 +81,43 @@ export const AuthProvider = ({ children }) => {
             };
         }
     };
+    // const register = async (userData) => {
+    //     try {
+    //         console.log('Sending register data:', userData); // ← Tambah ini
+    //         const response = await api.post('/register', userData);
+    //         return { success: true, data: response.data };
+    //     } catch (error) {
+    //         console.log('Register error response:', error.response?.data); // ← Tambah ini
+    //         return {
+    //             success: false,
+    //             message: error.response?.data?.message || 'Registration failed',
+    //             errors: error.response?.data?.errors,
+    //         };
+    //     }
+    // };
+    // Lebih defensif
     const register = async (userData) => {
         try {
-            console.log('Sending register data:', userData); // ← Tambah ini
+            console.log('Sending register data:', userData);
             const response = await api.post('/register', userData);
-            return { success: true, data: response.data };
+
+            // Cek apakah response.data.status atau apapun indikator sukses dari backend
+            const isActuallySuccess = response.data?.success === true || response.status === 201;
+
+            if (!isActuallySuccess) {
+                return {
+                    success: false,
+                    message: response.data?.message || 'Registrasi gagal',
+                    errors: response.data?.errors,
+                };
+            }
+
+            return {
+                success: true,
+                data: response.data,
+            };
         } catch (error) {
-            console.log('Register error response:', error.response?.data); // ← Tambah ini
+            console.log('Register error response:', error.response?.data);
             return {
                 success: false,
                 message: error.response?.data?.message || 'Registration failed',
@@ -95,6 +125,7 @@ export const AuthProvider = ({ children }) => {
             };
         }
     };
+
     // Tambahkan fungsi ini di dalam AuthProvider
     const setPassword = async ({ email, password }) => {
         try {

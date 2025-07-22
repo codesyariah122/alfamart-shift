@@ -270,6 +270,16 @@ export const ScheduleProvider = ({ children }) => {
             return response.json();
         },
 
+        getListStores: async () => {
+            const response = await fetch(`${API_BASE_URL}/list-stores`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch stores');
+            }
+
+            return response.json();
+        },
+
     };
 
     // Generate schedule and sync with database

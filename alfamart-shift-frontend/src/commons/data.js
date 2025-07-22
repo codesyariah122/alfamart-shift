@@ -113,3 +113,5 @@ export const generateCalendarHeader = (month, year) => {
 
     return result;
 };
+
+export const steps = ['Informasi Pribadi', 'Informasi Toko', 'Keamanan'];

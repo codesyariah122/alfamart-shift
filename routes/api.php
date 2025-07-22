@@ -15,8 +15,9 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/set-new-password', [AuthController::class, 'setNewPassword']);
-
-Route::middleware(['auth:sanctum', 'role:admin'])->post('/register', [AuthController::class, 'register']); // Bisa dibatasi pakai middleware jika perlu
+Route::get('/list-stores', [StoreController::class, 'index']);
+Route::post('/register', [AuthController::class, 'register']);
+// Route::middleware(['auth:sanctum', 'role:admin'])->post('/register', [AuthController::class, 'register']); // Bisa dibatasi pakai middleware jika perlu
 
 // Protected routes (semua yang login)
 Route::middleware('auth:sanctum')->group(function () {

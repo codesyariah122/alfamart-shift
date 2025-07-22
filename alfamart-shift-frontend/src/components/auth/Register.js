@@ -1,227 +1,249 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useSchedule } from '@/context/ScheduleContext';
+import { steps } from '@/commons';
 
-const Register = ({ onSwitchToLogin }) => {
+
+const RegisterStepper = ({ onSwitchToLogin }) => {
     const { register: registerUser, loading } = useAuth();
+    const [step, setStep] = useState(0);
+    const { scheduleAPI } = useSchedule();
+    const [stores, setStores] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [registerSuccess, setRegisterSuccess] = useState(false);
     const {
         register,
         handleSubmit,
         formState: { errors },
-        setError, // ← Tambah ini untuk set error manual
-        clearErrors, // ← Tambah ini untuk clear error
+        setError,
+        clearErrors,
+        getValues,
+        trigger,
     } = useForm();
 
-    const onSubmit = async (data) => {
-        // Clear previous errors
-        clearErrors();
-
-        const result = await registerUser(data);
-
-        if (!result.success) {
-            // Handle general error
-            toast.error(result.message);
-
-            // Handle specific field errors
-            if (result.errors) {
-                Object.keys(result.errors).forEach(field => {
-                    const errorMessage = result.errors[field][0]; // Ambil error pertama
-
-                    // Set error di form untuk field yang bermasalah
-                    setError(field, {
-                        type: 'server',
-                        message: errorMessage
-                    });
-
-                    // Tampilkan toast untuk error yang umum
-                    if (field === 'nik') {
-                        toast.error(`NIK: ${errorMessage}`);
-                    } else if (field === 'email') {
-                        toast.error(`Email: ${errorMessage}`);
-                    } else if (field === 'store_code') {
-                        toast.error(`Kode Toko: ${errorMessage}`);
-                    }
-                });
-            }
-        } else {
-            toast.success('Registrasi berhasil!');
-            onSwitchToLogin(); // Redirect ke login setelah berhasil
-        }
+    const nextStep = async () => {
+        const valid = await trigger(stepFields[step]);
+        if (valid) setStep(step + 1);
     };
 
+    const prevStep = () => setStep(step - 1);
+
+    const stepFields = [
+        ['name', 'email', 'nik'],
+        ['store_code', 'gender', 'phone'],
+        ['password', 'password_confirmation'],
+    ];
+
+    const onSubmit = async (data) => {
+        clearErrors();
+        setIsSubmitting(true);
+        const result = await registerUser(data);
+        setIsSubmitting(false);
+
+        if (!result.success || result.errors) {
+            toast.error(result.message || 'Registrasi gagal');
+
+            if (result.errors) {
+                Object.entries(result.errors).forEach(([field, [message]]) => {
+                    setError(field, { type: 'server', message });
+                    toast.error(`${field.toUpperCase()}: ${message}`);
+                });
+            }
+
+            return;
+        }
+
+        toast.success('Registrasi berhasil!');
+        setRegisterSuccess(true); // ← Tampilkan pesan berhasil
+    };
+
+
+    useEffect(() => {
+        const fetchStores = async () => {
+            try {
+                const storeList = await scheduleAPI.getListStores();
+                setStores(storeList?.data || []);
+            } catch (error) {
+                console.error('Gagal ambil data toko:', error);
+                toast.error('Gagal memuat daftar toko');
+            }
+        };
+
+        fetchStores();
+    }, []);
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md mx-auto"
-        >
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Name Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Nama Lengkap
-                    </label>
-                    <input
-                        type="text"
-                        {...register('name', { required: 'Nama harus diisi' })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Masukkan nama lengkap"
-                    />
-                    {errors.name && (
-                        <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-                    )}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md mx-auto">
+            <div className="flex justify-between mb-6">
+                {steps.map((label, i) => (
+                    <div key={i} className={`flex-1 text-center text-sm font-medium ${i === step ? 'text-blue-600' : 'text-gray-400'}`}>
+                        {label}
+                        {i < steps.length - 1 && <span className="mx-2 text-gray-300">➔</span>}
+                    </div>
+                ))}
+            </div>
+
+            {isSubmitting && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                    <div className="bg-white px-6 py-4 rounded-lg shadow-md flex items-center space-x-3">
+                        <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-700">Mendaftarkan akun...</span>
+                    </div>
                 </div>
-
-                {/* Email Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
-                    </label>
-                    <input
-                        type="email"
-                        {...register('email', {
-                            required: 'Email harus diisi',
-                            pattern: {
-                                value: /^\S+@\S+$/i,
-                                message: 'Format email tidak valid'
-                            }
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Masukkan email"
-                    />
-                    {errors.email && (
-                        <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-                    )}
-                </div>
-
-                {/* NIK Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        NIK
-                    </label>
-                    <input
-                        type="text"
-                        {...register('nik', { required: 'NIK harus diisi' })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Masukkan NIK"
-                    />
-                    {errors.nik && (
-                        <p className="mt-1 text-sm text-red-600">{errors.nik.message}</p>
-                    )}
-                </div>
-
-                {/* Store Code Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Kode Toko
-                    </label>
-                    <input
-                        type="text"
-                        {...register('store_code', { required: 'Kode toko harus diisi' })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Masukkan kode toko (contoh: H918)"
-                    />
-                    {errors.store_code && (
-                        <p className="mt-1 text-sm text-red-600">{errors.store_code.message}</p>
-                    )}
-                </div>
-
-                {/* Gender Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Jenis Kelamin
-                    </label>
-                    <select
-                        {...register('gender', { required: 'Jenis kelamin harus dipilih' })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                        <option value="">Pilih jenis kelamin</option>
-                        <option value="male">Laki-laki</option>
-                        <option value="female">Perempuan</option>
-                    </select>
-                    {errors.gender && (
-                        <p className="mt-1 text-sm text-red-600">{errors.gender.message}</p>
-                    )}
-                </div>
-
-                {/* Phone Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        No. Telepon
-                    </label>
-                    <input
-                        type="tel"
-                        {...register('phone')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Masukkan no. telepon (opsional)"
-                    />
-                    {errors.phone && (
-                        <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
-                    )}
-                </div>
-
-                {/* Password Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Password
-                    </label>
-                    <input
-                        type="password"
-                        {...register('password', {
-                            required: 'Password harus diisi',
-                            minLength: {
-                                value: 6,
-                                message: 'Password minimal 6 karakter'
-                            }
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Masukkan password"
-                    />
-                    {errors.password && (
-                        <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-                    )}
-                </div>
-
-                {/* Password Confirmation Field */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Konfirmasi Password
-                    </label>
-                    <input
-                        type="password"
-                        {...register('password_confirmation', {
-                            required: 'Konfirmasi password harus diisi'
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Ulangi password"
-                    />
-                    {errors.password_confirmation && (
-                        <p className="mt-1 text-sm text-red-600">{errors.password_confirmation.message}</p>
-                    )}
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                    {loading ? 'Loading...' : 'Daftar'}
-                </button>
-
-                <div className="text-center">
+            )}
+            {registerSuccess ? (
+                <div className="text-center space-y-4">
+                    <h2 className="text-2xl font-semibold text-green-600">Registrasi Berhasil!</h2>
+                    <p className="text-gray-700">Akun kamu sudah terdaftar.</p>
                     <button
-                        type="button"
                         onClick={onSwitchToLogin}
-                        className="text-sm text-blue-600 hover:text-blue-500"
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                     >
-                        Sudah punya akun? Login disini
+                        Login Sekarang
                     </button>
                 </div>
-            </form>
+            ) : (
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    {step === 0 && (
+                        <>
+                            <div>
+                                <label>Nama Lengkap</label>
+                                <input {...register('name', { required: 'Nama harus diisi' })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                {errors.name && <p className="text-red-600">{errors.name.message}</p>}
+                            </div>
+                            <div>
+                                <label>Email</label>
+                                <input
+                                    {...register('email', {
+                                        required: 'Email harus diisi',
+                                        pattern: { value: /^\S+@\S+$/i, message: 'Format email tidak valid' },
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                {errors.email && <p className="text-red-600">{errors.email.message}</p>}
+                            </div>
+                            <div>
+                                <label>NIK</label>
+                                <input {...register('nik', { required: 'NIK harus diisi' })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                {errors.nik && <p className="text-red-600">{errors.nik.message}</p>}
+                            </div>
+                        </>
+                    )}
+
+                    {step === 1 && (
+                        <>
+                            <div>
+                                <label>Kode Toko</label>
+                                <select
+                                    {...register('store_code', { required: 'Kode toko harus dipilih' })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+                                    <option value="">Pilih toko</option>
+                                    {stores.map((store) => (
+                                        <option key={store.store_code} value={store.store_code}>
+                                            {store.store_name} ({store.store_code})
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.store_code && <p className="text-red-600">{errors.store_code.message}</p>}
+
+                            </div>
+                            <div>
+                                <label>Jenis Kelamin</label>
+                                <select {...register('gender', { required: 'Jenis kelamin harus dipilih' })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">Pilih jenis kelamin</option>
+                                    <option value="male">Laki-laki</option>
+                                    <option value="female">Perempuan</option>
+                                </select>
+                                {errors.gender && <p className="text-red-600">{errors.gender.message}</p>}
+                            </div>
+                            <div>
+                                <label>No. Telepon</label>
+                                <input {...register('phone')} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                {errors.phone && <p className="text-red-600">{errors.phone.message}</p>}
+                            </div>
+                        </>
+                    )}
+
+                    {step === 2 && (
+                        <>
+                            <div>
+                                <label>Password</label>
+                                <input
+                                    type="password"
+                                    {...register('password', {
+                                        required: 'Password harus diisi',
+                                        minLength: { value: 6, message: 'Password minimal 6 karakter' },
+                                    })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                {errors.password && <p className="text-red-600">{errors.password.message}</p>}
+                            </div>
+                            <div>
+                                <label>Konfirmasi Password</label>
+                                <input
+                                    type="password"
+                                    {...register('password_confirmation', { required: 'Konfirmasi password harus diisi' })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                {errors.password_confirmation && (
+                                    <p className="text-red-600">{errors.password_confirmation.message}</p>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    <div className="flex justify-between mt-6">
+                        {step > 0 && (
+                            <button type="button" onClick={prevStep} className="text-sm text-gray-600 hover:underline">
+                                Kembali
+                            </button>
+                        )}
+                        {step < steps.length - 1 ? (
+                            <button
+                                type="button"
+                                onClick={nextStep}
+                                className="ml-auto bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                            >
+                                Lanjut
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="ml-auto bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center justify-center min-w-[100px]"
+                            >
+                                {isSubmitting ? (
+                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                    </svg>
+                                ) : (
+                                    'Daftar'
+                                )}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="text-center">
+                        <button
+                            type="button"
+                            onClick={onSwitchToLogin}
+                            className="text-sm text-blue-600 hover:underline mt-4"
+                        >
+                            Sudah punya akun? Login disini
+                        </button>
+                    </div>
+                </form>
+            )}
         </motion.div>
     );
 };
 
-export default Register;
+export default RegisterStepper;
