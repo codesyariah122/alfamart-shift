@@ -211,7 +211,8 @@ const ScheduleGenerator = ({ onClose }) => {
             }
         }
     };
-    console.log('generationType:', generationType, 'autoSubType:', autoSubType);
+
+
     return (
         <div className="space-y-6">
             <div className="relative">
@@ -261,7 +262,7 @@ const ScheduleGenerator = ({ onClose }) => {
                 ))}
             </div>
 
-            {(loadingStores || stores.length > 1) && (
+            {(loadingStores || stores.length >= 1) && (
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Toko</label>
                     {loadingStores ? (

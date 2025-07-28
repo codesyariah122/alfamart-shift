@@ -12,7 +12,9 @@ const ScheduleViewer = () => {
     const [createdBy, setCreatedBy] = useState(null);
     const [loading, setLoading] = useState(false);
     const [stores, setStores] = useState([]);
-    const [selectedStoreId, setSelectedStoreId] = useState(user?.store_id || '');
+    const [selectedStoreId, setSelectedStoreId] = useState(
+        user?.role === 'admin' ? '' : user?.role === 'cos' ? user?.store_id || '' : user?.store_id || ''
+    );
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
     const [loadingStore, setLoadingStore] = useState(true);
@@ -27,7 +29,7 @@ const ScheduleViewer = () => {
                 month: month + 1,
             });
 
-            console.log('Fetched schedule data:', JSON.stringify(result.data, null, 2));
+            // console.log('Fetched schedule data:', JSON.stringify(result.data, null, 2));
             setData(result.data);
             setCreatedBy(result.created_by);
         } catch (err) {
@@ -51,19 +53,27 @@ const ScheduleViewer = () => {
 
     useEffect(() => {
         const fetchStores = async () => {
-            setLoadingStore(true); // mulai loading
+            setLoadingStore(true);
             try {
                 const data = await scheduleAPI.getStores();
-                setStores(data.data || []);
+                let storeList = data.data || [];
+                if (user?.role === 'cos') {
+                    // Hanya store milik user COS
+                    storeList = storeList.filter(store => store.id === user?.store_id);
+                } else if (user?.role !== 'admin') {
+                    // Employee biasa
+                    storeList = storeList.filter(store => store.id === user?.store_id);
+                }
+                setStores(storeList);
             } catch (err) {
                 console.error(err.message);
             } finally {
-                setLoadingStore(false); // selesai loading
+                setLoadingStore(false);
             }
         };
 
         fetchStores();
-    }, [scheduleAPI]);
+    }, [user]);
 
     const getShiftColor = (code) => {
         switch (code) {
@@ -84,7 +94,7 @@ const ScheduleViewer = () => {
                         value={selectedStoreId}
                         onChange={(e) => setSelectedStoreId(e.target.value)}
                         className="border rounded p-2"
-                        disabled={loadingStore} // ⬅️ disable saat loading
+                        disabled={loadingStore || user?.role !== 'admin'} // hanya admin bisa pilih store
                     >
                         <option value="">{loadingStore ? 'Memuat Store...' : 'Pilih Store'}</option>
                         {!loadingStore && stores.map(store => (

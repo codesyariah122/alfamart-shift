@@ -11,20 +11,6 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    const getCardsByRole = (role) => {
-        switch (role) {
-            case 'admin':
-                return ['generate', 'schedule', 'calendar', 'employees', 'reports', 'settings'];
-            case 'cos':
-            case 'acos':
-                return ['generate', 'schedule', 'calendar', 'reports'];
-            case 'employee':
-                return ['schedule', 'calendar'];
-            default:
-                return [];
-        }
-    };
-
     const handleCardClick = (cardId) => {
         switch (cardId) {
             case "calendar":
@@ -42,9 +28,9 @@ const Dashboard = () => {
     const closeModal = () => {
         setActiveModal(null);
     };
-    const visibleCards = cards.filter(card =>
-        getCardsByRole(user?.role).includes(card.id)
-    );
+
+    const visibleCards = cards.filter(card => card.roles.includes(user?.role));
+
     return (
         <div className="p-6">
             <div className="mb-8">
@@ -115,13 +101,18 @@ const Dashboard = () => {
 
                         {(() => {
                             const card = visibleCards.find(c => c.id === activeModal);
-                            if (card?.component) {
+                            if (card?.component && user?.role === 'admin') {
                                 const Component = card.component;
                                 return (
                                     <EmployeeProvider>
                                         <Component onClose={closeModal} />
                                     </EmployeeProvider>
                                 );
+                            } else {
+                                const Component = card.component;
+                                return (
+                                    <Component onClose={closeModal} />
+                                )
                             }
                             return (
                                 <div className="text-center py-8">

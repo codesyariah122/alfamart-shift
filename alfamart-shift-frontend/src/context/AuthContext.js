@@ -53,34 +53,43 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
     const login = async (credentials) => {
+        const { isAdmin, ...loginData } = credentials;
+
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
-            console.log('Sending data:', credentials); // ← Tambah ini
-            const response = await api.post('/login', credentials);
-            const { employee, token } = response.data.data;
+
+            const endpoint = isAdmin ? '/admin/login' : '/login';
+            const response = await api.post(endpoint, loginData);
+
+            const { token } = response.data.data;
+            const user = isAdmin
+                ? response.data.data.user    // dari admin login
+                : response.data.data.employee; // dari employee login
 
             localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(employee));
+            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('isAdmin', isAdmin); // simpan info role
 
             dispatch({
                 type: 'LOGIN_SUCCESS',
                 payload: {
-                    user: employee,
+                    user,
                     token,
                 },
             });
 
             return { success: true, data: response.data };
         } catch (error) {
-            console.log('Full error:', error.response); // ← Tambah ini
-            console.log('Error data:', error.response?.data); // ← Tambah ini
+            console.error('Login error:', error.response?.data);
             dispatch({ type: 'SET_LOADING', payload: false });
+
             return {
                 success: false,
                 message: error.response?.data?.message || 'Login failed',
             };
         }
     };
+
     // const register = async (userData) => {
     //     try {
     //         console.log('Sending register data:', userData); // ← Tambah ini
@@ -95,10 +104,26 @@ export const AuthProvider = ({ children }) => {
     //         };
     //     }
     // };
+    const checkNik = async (nik) => {
+        try {
+            const response = await api.post('/check-nik', { nik });
+            return {
+                success: true,
+                data: response.data?.data,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'NIK tidak valid',
+            };
+        }
+    };
+
+
     // Lebih defensif
     const register = async (userData) => {
         try {
-            console.log('Sending register data:', userData);
+            // console.log('Sending register data:', userData);
             const response = await api.post('/register', userData);
 
             // Cek apakah response.data.status atau apapun indikator sukses dari backend
@@ -125,6 +150,7 @@ export const AuthProvider = ({ children }) => {
             };
         }
     };
+
 
     // Tambahkan fungsi ini di dalam AuthProvider
     const setPassword = async ({ email, password }) => {
@@ -208,6 +234,7 @@ export const AuthProvider = ({ children }) => {
             value={{
                 ...state,
                 login,
+                checkNik,
                 register,
                 logout,
                 setPassword,

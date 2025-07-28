@@ -30,7 +30,7 @@ export const EmployeeProvider = ({ children }) => {
 
     const fetchStores = useCallback(async () => {
         try {
-            const res = await api.get('/stores');
+            const res = await api.get('/list-stores');
             setStores(res.data?.data || []);
         } catch (error) {
             console.error(error.message);

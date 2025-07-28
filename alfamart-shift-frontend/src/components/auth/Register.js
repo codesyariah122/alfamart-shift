@@ -8,12 +8,15 @@ import { steps } from '@/commons';
 
 
 const RegisterStepper = ({ onSwitchToLogin }) => {
-    const { register: registerUser, loading } = useAuth();
-    const [step, setStep] = useState(0);
     const { scheduleAPI } = useSchedule();
+    const [step, setStep] = useState(0);
+    const { checkNik, register: registerUser, loading } = useAuth();
+    const [nikValidated, setNikValidated] = useState(false);
+    const [checkingNik, setCheckingNik] = useState(false);
     const [stores, setStores] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [registerSuccess, setRegisterSuccess] = useState(false);
+    const [employeeData, setEmployeeData] = useState(null);
     const {
         register,
         handleSubmit,
@@ -22,6 +25,7 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
         clearErrors,
         getValues,
         trigger,
+        setValue
     } = useForm();
 
     const nextStep = async () => {
@@ -32,15 +36,26 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
     const prevStep = () => setStep(step - 1);
 
     const stepFields = [
-        ['name', 'email', 'nik'],
-        ['store_code', 'gender', 'phone'],
-        ['password', 'password_confirmation'],
+        ['nik'], // Step 0
+        ['name', 'email', 'store_code', 'gender', 'phone'], // Step 1
+        ['password', 'password_confirmation'], // Step 2
     ];
 
     const onSubmit = async (data) => {
         clearErrors();
         setIsSubmitting(true);
-        const result = await registerUser(data);
+
+        const payload = {
+            nik: data.nik,
+            email: data.email,
+            password: data.password,
+            password_confirmation: data.password_confirmation,
+            phone: data.phone || null,
+            gender: data.gender || null,
+            store_code: data.store_code,
+        };
+
+        const result = await registerUser(payload);
         setIsSubmitting(false);
 
         if (!result.success || result.errors) {
@@ -57,8 +72,9 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
         }
 
         toast.success('Registrasi berhasil!');
-        setRegisterSuccess(true); // ← Tampilkan pesan berhasil
+        setRegisterSuccess(true);
     };
+
 
 
     useEffect(() => {
@@ -73,7 +89,7 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
         };
 
         fetchStores();
-    }, []);
+    }, [scheduleAPI]);
 
     return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md mx-auto">
@@ -113,6 +129,57 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
                     {step === 0 && (
                         <>
                             <div>
+                                <label>NIK</label>
+                                <input
+                                    {...register('nik', { required: 'NIK harus diisi' })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    disabled={nikValidated}
+                                />
+                                {errors.nik && <p className="text-red-600">{errors.nik.message}</p>}
+                            </div>
+                            {!nikValidated && (
+                                <button
+                                    type="button"
+                                    disabled={checkingNik}
+                                    onClick={async () => {
+                                        clearErrors('nik');
+                                        const valid = await trigger('nik');
+                                        if (!valid) return;
+
+                                        setCheckingNik(true);
+                                        const { nik } = getValues();
+                                        const result = await checkNik(nik);
+                                        setCheckingNik(false);
+
+                                        if (result.success) {
+                                            toast.success('NIK valid, lanjut isi data');
+                                            setNikValidated(true);
+                                            setStep(step + 1);
+                                            setEmployeeData(result.data);
+                                            if (result.data) {
+                                                const { name, email, nik, phone, gender } = result.data;
+                                                setValue('name', name || '');
+                                                setValue('email', email || '');
+                                                setValue('nik', nik || '');
+                                                setValue('phone', phone || '');
+                                                setValue('gender', gender || '');
+                                                setValue('store_code', result?.data?.store?.store_code || '');
+                                            }
+                                        } else {
+                                            setError('nik', { type: 'manual', message: result.message });
+                                            toast.error(result.message || 'NIK tidak valid');
+                                        }
+                                    }}
+                                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                                >
+                                    {checkingNik ? 'Memeriksa...' : 'Periksa NIK'}
+                                </button>
+                            )}
+                        </>
+                    )}
+                    {step === 1 && (
+                        <>
+                            <div>
                                 <label>Nama Lengkap</label>
                                 <input {...register('name', { required: 'Nama harus diisi' })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                                 {errors.name && <p className="text-red-600">{errors.name.message}</p>}
@@ -136,13 +203,13 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
                         </>
                     )}
 
-                    {step === 1 && (
+                    {step === 2 && (
                         <>
                             <div>
                                 <label>Kode Toko</label>
                                 <select
                                     {...register('store_code', { required: 'Kode toko harus dipilih' })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                                 >
                                     <option value="">Pilih toko</option>
                                     {stores.map((store) => (
@@ -156,7 +223,11 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
                             </div>
                             <div>
                                 <label>Jenis Kelamin</label>
-                                <select {...register('gender', { required: 'Jenis kelamin harus dipilih' })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <select
+                                    {...register('gender', { required: 'Jenis kelamin harus dipilih' })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+
                                     <option value="">Pilih jenis kelamin</option>
                                     <option value="male">Laki-laki</option>
                                     <option value="female">Perempuan</option>
@@ -205,7 +276,7 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
                                 Kembali
                             </button>
                         )}
-                        {step < steps.length - 1 ? (
+                        {step < steps.length - 1 && step > 0 ? (
                             <button
                                 type="button"
                                 onClick={nextStep}
@@ -214,20 +285,22 @@ const RegisterStepper = ({ onSwitchToLogin }) => {
                                 Lanjut
                             </button>
                         ) : (
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="ml-auto bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center justify-center min-w-[100px]"
-                            >
-                                {isSubmitting ? (
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                    </svg>
-                                ) : (
-                                    'Daftar'
-                                )}
-                            </button>
+                            step === 2 && nikValidated && (
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="ml-auto bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center justify-center min-w-[100px]"
+                                >
+                                    {isSubmitting ? (
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                        </svg>
+                                    ) : (
+                                        'Daftar'
+                                    )}
+                                </button>
+                            )
                         )}
                     </div>
 

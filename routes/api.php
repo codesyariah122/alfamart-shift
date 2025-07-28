@@ -7,15 +7,17 @@ use App\Http\Controllers\{
     EmployeeController,
     StoreController,
     ShiftController,
-    SettingsController
+    SettingsController,
+    PublicApiController
 };
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/check-nik', [AuthController::class, 'checkNik']);
 Route::post('/set-password', [AuthController::class, 'setPassword']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/set-new-password', [AuthController::class, 'setNewPassword']);
-Route::get('/list-stores', [StoreController::class, 'index']);
+Route::get('/list-stores', [PublicApiController::class, 'listStore']);
 Route::post('/register', [AuthController::class, 'register']);
 // Route::middleware(['auth:sanctum', 'role:admin'])->post('/register', [AuthController::class, 'register']); // Bisa dibatasi pakai middleware jika perlu
 

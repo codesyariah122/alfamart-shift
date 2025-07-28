@@ -58,7 +58,6 @@ function AppContent() {
                                     <Navbar />
                                     <main className="max-w-7xl mx-auto relative overflow-visible">
                                         <Routes>
-
                                             <Route path="/dashboard" element={<DashboardPage />} />
                                             <Route path="/calendar" element={<CalendarPage />} />
                                         </Routes>

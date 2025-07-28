@@ -66,6 +66,7 @@ php artisan tinker
 
 ```
 php artisan queue:work --queue=default
+php artisan queue:work --tries=1 --timeout=0 --verbose
 ```  
 
 ## Cara Penggunaan

@@ -2,17 +2,42 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Store;
+use App\Models\{Store};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\{Validator, Auth};
 
 class StoreController extends Controller
 {
     public function index(Request $request)
     {
-        $stores = Store::with(['employees' => function($query) {
-            $query->where('status', 'active');
-        }])->get();
+        $employee = Auth::guard('sanctum')->user();
+
+        if (!$employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        // Cek rolenya
+        $role = $employee->role;
+
+        if ($role === 'admin') {
+            // Admin: tampilkan semua store
+            $stores = Store::with(['employees' => function ($query) {
+                $query->where('status', 'active');
+            }])->get();
+        } else if (in_array($role, ['cos', 'acos'])) {
+            // COS atau ACOS: hanya tampilkan store sesuai store_id-nya
+            $stores = Store::with(['employees' => function ($query) {
+                $query->where('status', 'active');
+            }])->where('id', $employee->store_id)->get();
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied'
+            ], 403);
+        }
 
         return response()->json([
             'success' => true,
@@ -38,7 +63,9 @@ class StoreController extends Controller
 
         $store = Store::findOrFail($id);
         $store->update($request->only([
-            'store_type', 'off_days_per_month', 'whatsapp_number'
+            'store_type',
+            'off_days_per_month',
+            'whatsapp_number'
         ]));
 
         return response()->json([

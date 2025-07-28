@@ -9,7 +9,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { ScheduleGenerator, ScheduleViewer, EmployeeManagement, ReportDashboard } from '@/components/dashboard';
 import { SettingsPanel } from '@/components/dashboard'
-
 export const cards = [
     {
         id: 'generate',
@@ -17,7 +16,8 @@ export const cards = [
         description: 'Buat jadwal shift otomatis atau manual',
         icon: CalendarDaysIcon,
         gradient: 'from-blue-500 to-purple-600',
-        component: ScheduleGenerator
+        component: ScheduleGenerator,
+        roles: ['admin', 'cos', 'acos']
     },
     {
         id: 'schedule',
@@ -25,7 +25,8 @@ export const cards = [
         description: 'Tampilkan jadwal shift semua karyawan',
         icon: CalendarDaysIcon,
         gradient: 'from-green-500 to-teal-600',
-        component: ScheduleViewer
+        component: ScheduleViewer,
+        roles: ['admin', 'acos', 'cos', 'employee']
     },
     {
         id: 'calendar',
@@ -33,7 +34,8 @@ export const cards = [
         description: 'Lihat jadwal dalam tampilan kalender',
         icon: CalendarDaysIcon,
         gradient: 'from-purple-500 to-pink-600',
-        component: null
+        component: null,
+        roles: ['admin', 'acos', 'cos', 'employee']
     },
     {
         id: 'employees',
@@ -42,6 +44,7 @@ export const cards = [
         icon: UsersIcon,
         gradient: 'from-orange-500 to-red-600',
         component: EmployeeManagement,
+        roles: ['admin']
     },
     {
         id: 'reports',
@@ -49,7 +52,8 @@ export const cards = [
         description: 'Lihat laporan dan statistik',
         icon: ChartBarIcon,
         gradient: 'from-yellow-500 to-orange-600',
-        component: ReportDashboard
+        component: ReportDashboard,
+        roles: ['admin', 'cos', 'acos']
     },
     {
         id: 'settings',
@@ -57,7 +61,8 @@ export const cards = [
         description: 'Konfigurasi sistem',
         icon: Cog6ToothIcon,
         gradient: 'from-gray-500 to-gray-700',
-        component: SettingsPanel
+        component: SettingsPanel,
+        roles: ['admin']
     }
 ];
 

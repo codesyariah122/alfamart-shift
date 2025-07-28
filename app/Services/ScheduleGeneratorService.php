@@ -23,7 +23,10 @@ class ScheduleGeneratorService
         $dayOfMonth = null
     ) {
         $store = Store::findOrFail($storeId);
-        $employees = Employee::where('store_id', $storeId)->where('status', 'active')->get();
+        $employees = Employee::where('store_id', $storeId)
+            ->where('status', 'active')
+            ->where('role', '!=', 'admin')
+            ->get();
         $shifts = Shift::all();
 
         $fromDate = $from ?? Carbon::create($year, $month, 1);
@@ -85,6 +88,9 @@ class ScheduleGeneratorService
     {
         $assigned = collect();
         $allSchedules = [];
+
+        // Pastikan admin tidak masuk jadwal
+        $employees = $employees->filter(fn($emp) => $emp->role !== 'admin');
 
         foreach (['P', 'S', 'M', 'O'] as $code) {
             $shift = $shifts->firstWhere('shift_code', $code);

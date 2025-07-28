@@ -3,7 +3,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Employee, Store};
+use App\Models\{Employee, Store, User};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\{Auth, Hash, Validator, DB};
 
 class AuthController extends Controller
 {
+    /**
+     * Handle user login.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -51,13 +57,10 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:employees',
-            'nik' => 'required|string|unique:employees',
-            'store_code' => 'required|string|exists:stores,store_code',
+            'nik' => 'required|string|exists:employees,nik',
+            'email' => 'required|email',
             'password' => 'required|string|min:6|confirmed',
-            'gender' => 'required|in:male,female',
-            'phone' => 'nullable|string'
+            'phone' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -68,23 +71,71 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $store = Store::where('store_code', $request->store_code)->first();
+        $employee = Employee::where('nik', $request->nik)
+            ->where('email', $request->email)
+            ->first();
 
-        $employee = Employee::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'nik' => $request->nik,
-            'store_id' => $store->id,
-            'password' => Hash::make($request->password),
-            'gender' => $request->gender,
-            'phone' => $request->phone,
-        ]);
+
+        if (!$employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'NIK atau Email tidak ditemukan, silahkan hubungi admin.'
+            ], 404);
+        }
+
+        $employee->password = Hash::make($request->password);
+        // $employee->role = 'admin';
+
+        if ($request->phone) {
+            $employee->phone = $request->phone;
+        }
+        $employee->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Registrasi berhasil',
+            'message' => 'Registrasi berhasil, silahkan login.',
             'data' => $employee->load('store')
-        ], 201);
+        ], 200);
+    }
+
+    public function checkNik(Request $request)
+    {
+        $request->validate([
+            'nik' => 'required|string',
+        ]);
+
+        $employee = Employee::where('nik', $request->nik)->first();
+
+        if (!$employee) {
+            return response()->json([
+                'status' => false,
+                'message' => 'NIK tidak ditemukan di data karyawan.',
+            ], 404);
+        }
+
+        // Cek apakah user dengan NIK ini sudah register (jika ada tabel `users`)
+        // Misalnya user disimpan berdasarkan NIK juga
+        // if (User::where('nik', $request->nik)->exists()) {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'NIK sudah digunakan untuk register.',
+        //     ], 409);
+        // }
+
+        $store = Store::where('id', $employee->store_id)->first();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'NIK valid.',
+            'data' => [
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'phone' => $employee->phone,
+                'nik' => $employee->nik,
+                'gender' => $employee->gender,
+                'store' => $store,
+            ],
+        ]);
     }
 
     public function logout(Request $request)

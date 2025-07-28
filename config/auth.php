@@ -46,6 +46,10 @@ return [
             'provider' => 'employees',
             'hash' => false,
         ],
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'employees', // <- pakai provider employees
+        ],
     ],
 
     'providers' => [
