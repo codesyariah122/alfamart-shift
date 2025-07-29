@@ -1,6 +1,0 @@
-export { default as DashboardPage } from './DashboardPage'
-export { default as CalendarPage } from './CalendarPage'
-export { default as ActivationSuccess } from './ActivationSuccess'
-export { default as SetPassword } from './SetPassword'
-export { default as ForgotPassword } from './ForgotPassword'
-export { default as SetNewPassword } from './ForgotPassword/SetNewPassword'

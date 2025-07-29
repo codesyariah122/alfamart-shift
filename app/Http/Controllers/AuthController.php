@@ -83,6 +83,9 @@ class AuthController extends Controller
             ], 404);
         }
 
+        $token = Str::random(60);
+        $employee->activation_token = $token;
+        $employee->status = 'active'; // Set status to active upon registration
         $employee->password = Hash::make($request->password);
         // $employee->role = 'admin';
 
@@ -134,6 +137,8 @@ class AuthController extends Controller
                 'nik' => $employee->nik,
                 'gender' => $employee->gender,
                 'store' => $store,
+                'activation_token' => $employee->activation_token,
+                'status' => $employee->status,
             ],
         ]);
     }

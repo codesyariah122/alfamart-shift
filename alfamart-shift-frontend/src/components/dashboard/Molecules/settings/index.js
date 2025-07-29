@@ -1,5 +1,0 @@
-export { default as ResetSchedule } from './ResetSchedule'
-export { default as ShiftSettings } from './ShiftSettings'
-export { default as StoreSettings } from './StoreSettings'
-export { default as ChangePassword } from './ChangePassword'
-export { default as ResetEmployeePassword } from './ResetEmployeePassword'
