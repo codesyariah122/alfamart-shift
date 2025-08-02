@@ -27,7 +27,7 @@ class StoreController extends Controller
             $stores = Store::with(['employees' => function ($query) {
                 $query->where('status', 'active');
             }])->get();
-        } else if (in_array($role, ['cos', 'acos'])) {
+        } else if (in_array($role, ['employee', 'cos', 'acos'])) {
             // COS atau ACOS: hanya tampilkan store sesuai store_id-nya
             $stores = Store::with(['employees' => function ($query) {
                 $query->where('status', 'active');

@@ -32,7 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Role-based routes
-Route::middleware(['auth:sanctum', 'role:admin,cos,acos'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,cos,acos,employee'])->group(function () {
     // Jadwal
     Route::put('/schedules/reset-all', [ScheduleController::class, 'resetAllSchedules']);
     Route::post('/schedules/generate', [ScheduleController::class, 'generateSchedule']);

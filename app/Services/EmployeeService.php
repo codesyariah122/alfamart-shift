@@ -11,6 +11,7 @@ class EmployeeService
     public function getAllEmployees()
     {
         return Employee::with('store')
+            ->where('role', '!=', 'admin')
             ->paginate(20)
             ->through(function ($employee) {
                 return [
@@ -49,7 +50,8 @@ class EmployeeService
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:employees,email,' . $id,
             'phone' => 'sometimes|string',
-            'status' => 'sometimes|in:active,inactive',
+            // 'status' => 'sometimes|in:active,inactive',
+            'status' => 'required|in:' . implode(',', Employee::getStatusOptions()),
             'gender' => 'sometimes|in:male,female'
         ]);
     }

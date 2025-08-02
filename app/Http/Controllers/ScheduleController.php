@@ -89,6 +89,7 @@ class ScheduleController extends Controller
         $storeId = $request->get('store_id') ?? $request->user()->store_id;
 
         $employees = Employee::where('store_id', $storeId)
+            ->where('role', '!=', 'admin')
             ->where('status', 'active')
             ->with(['schedules' => function ($query) use ($month, $year) {
                 $query->where('month', $month)

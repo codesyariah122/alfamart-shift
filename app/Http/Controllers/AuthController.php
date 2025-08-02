@@ -42,6 +42,14 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // ✅ Cek status aktif
+        if ($employee->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun Anda tidak aktif. Silakan hubungi admin.'
+            ], 403);
+        }
+
         $token = $employee->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -53,6 +61,7 @@ class AuthController extends Controller
             ]
         ]);
     }
+
 
     public function register(Request $request)
     {
@@ -85,7 +94,7 @@ class AuthController extends Controller
 
         $token = Str::random(60);
         $employee->activation_token = $token;
-        $employee->status = 'active'; // Set status to active upon registration
+        $employee->status = Employee::STATUS_ACTIVE; // Set status to active upon registration
         $employee->password = Hash::make($request->password);
         // $employee->role = 'admin';
 

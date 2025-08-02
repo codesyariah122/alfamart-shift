@@ -7,161 +7,128 @@ use App\Models\Employee;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Faker\Factory as Faker;
 
 class EmployeeSeeder extends Seeder
 {
     public function run()
     {
-        $store = Store::where('store_code', 'H918')->first();
+        $faker = Faker::create();
 
-        if (!$store) {
-            $this->command->error("Store dengan kode H918 tidak ditemukan.");
+        // Nonaktifkan FK constraints sementara
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+        // Hapus data schedules dan data lain yg tergantung employee
+        DB::table('schedules')->delete();
+        DB::table('notifications')->delete(); // Hapus juga tabel yg ada FK ke employees
+
+        // Hapus data employee dengan delete, bukan truncate
+        Employee::query()->delete();
+
+        // Aktifkan FK constraints lagi
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+        // Lanjut ke insert data employee
+        $stores = Store::all();
+
+        if ($stores->isEmpty()) {
+            $this->command->error("Tidak ada data store ditemukan.");
             return;
         }
 
-        // 1. Hapus data schedules terlebih dahulu agar tidak melanggar FK constraint
-        DB::table('schedules')->delete();
+        $employeesToInsert = [];
+        $adminCreated = false;
 
-        // 2. Hapus semua employees yang ada di store tersebut
-        Employee::where('store_id', $store->id)->delete();
+        foreach ($stores as $store) {
+            $maleCount = 0;
+            $femaleCount = 0;
 
-        // 3. Data baru
-        $employees = [
-            [
-                'nik' => '99999999',
-                'name' => 'Admin Alfamart',
-                'email' => 'admin@alfamart.com',
+            // Buat 1 admin sekali saja, status aktif
+            if (!$adminCreated) {
+                $employeesToInsert[] = [
+                    'nik' => 'ADMIN' . $store->id,
+                    'name' => 'Admin Store ' . $store->store_code,
+                    'email' => 'admin' . $store->id . '@store.com',
+                    'gender' => 'male',
+                    'phone' => $faker->phoneNumber,
+                    'store_id' => $store->id,
+                    'password' => Hash::make('admin123'),
+                    'role' => 'admin',
+                    'status' => 'active',  // admin aktif
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                $adminCreated = true;
+            }
+
+            // 1 COS (male), status inactive
+            $employeesToInsert[] = [
+                'nik' => 'COS' . $store->id . 'M',
+                'name' => 'COS Male Store ' . $store->store_code,
+                'email' => 'cos' . $store->id . 'm@store.com',
                 'gender' => 'male',
-                'phone' => '0810000000',
-                'store_id' => $store->id,
-                'password' => Hash::make('admin123'),
-                'role' => 'admin',
-            ],
-            [
-                'nik' => '16096174',
-                'name' => 'Sholihul Hadi',
-                'email' => 'sholihulhadi@gmail.com',
-                'gender' => 'male',
-                'phone' => '08123456789',
+                'phone' => $faker->phoneNumber,
                 'store_id' => $store->id,
                 'password' => Hash::make('password123'),
                 'role' => 'cos',
-            ],
-            [
-                'nik' => '18080835',
-                'name' => 'Ahmad Widiantor',
-                'email' => 'ahmadwidiantor@gmail.com',
-                'gender' => 'male',
-                'phone' => '0811111112',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'acos',
-            ],
-            [
-                'nik' => '22067008',
-                'name' => 'Arief Saputro',
-                'email' => 'ariefsaputro@gmail.com',
-                'gender' => 'male',
-                'phone' => '0811111113',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'acos',
-            ],
-            [
-                'nik' => '22079237',
-                'name' => 'Guntur Adi Saputro',
-                'email' => 'gunturadisaputro@gmail.com',
-                'gender' => 'male',
-                'phone' => '0811111114',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'acos',
-            ],
-            [
-                'nik' => '24021076',
-                'name' => 'Muhammad Ghozi Taqiuddin',
-                'email' => 'muhammadghozitaqiuddin@gmail.com',
-                'gender' => 'male',
-                'phone' => '0811111115',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'employee',
-            ],
-            [
-                'nik' => '23090167',
-                'name' => 'Diah Sasi Novitasari',
-                'email' => 'diahsasinovitasari@gmail.com',
-                'gender' => 'female',
-                'phone' => '0811111116',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'employee',
-            ],
-            [
-                'nik' => '24054655',
-                'name' => 'Bima',
-                'email' => 'bima@gmail.com',
-                'gender' => 'male',
-                'phone' => '0811111117',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'employee',
-            ],
-            [
-                'nik' => '24014652',
-                'name' => 'Adit',
-                'email' => 'adit@gmail.com',
-                'gender' => 'male',
-                'phone' => '0811111118',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'employee',
-            ],
-            [
-                'nik' => '24110167',
-                'name' => 'Adi',
-                'email' => 'adi@gmail.com',
-                'gender' => 'male',
-                'phone' => '08901234567',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'employee'
-            ],
-            [
-                'nik' => '24021085',
-                'name' => 'Dewi Lestari',
-                'email' => 'dewi@gmail.com',
-                'gender' => 'female',
-                'phone' => '08991234567',
-                'store_id' => $store->id,
-                'password' => Hash::make('password123'),
-                'role' => 'employee'
-            ],
-            [
-                'nik' => '24021086',
-                'email' => 'cos1@gmail.com',
-                'name' => 'Cos Employee',
-                'gender' => 'male',
-                'phone' => '08123456790',
-                'store_id' => 1,
-                'password' => Hash::make('password'),
-                'role' => 'cos',
-            ],
-            [
-                'nik' => '24021087',
-                'email' => 'acos1@gmail.com',
-                'name' => 'Acos Employee',
-                'gender' => 'female',
-                'phone' => '08123456791',
-                'store_id' => 1,
-                'password' => Hash::make('password'),
-                'role' => 'acos',
-            ],
-        ];
+                'status' => 'inactive',  // inactive
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            $maleCount++;
 
-        // 4. Insert ulang tanpa takut duplikat
-        Employee::insert($employees);
+            // 1 ACOS (female), status inactive
+            $employeesToInsert[] = [
+                'nik' => 'ACOS' . $store->id . 'F',
+                'name' => 'ACOS Female Store ' . $store->store_code,
+                'email' => 'acos' . $store->id . 'f@store.com',
+                'gender' => 'female',
+                'phone' => $faker->phoneNumber,
+                'store_id' => $store->id,
+                'password' => Hash::make('password123'),
+                'role' => 'acos',
+                'status' => 'inactive',  // inactive
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            $femaleCount++;
 
-        $this->command->info('EmployeeSeeder berhasil dijalankan tanpa duplikasi dan tanpa error relasi.');
+            // Sisanya employee biasa, status inactive
+            for ($i = $maleCount; $i < 5; $i++) {
+                $employeesToInsert[] = [
+                    'nik' => 'EMP' . $store->id . 'M' . $i,
+                    'name' => 'Employee Male ' . ($i + 1) . ' Store ' . $store->store_code,
+                    'email' => 'employee' . $store->id . 'm' . $i . '@store.com',
+                    'gender' => 'male',
+                    'phone' => $faker->phoneNumber,
+                    'store_id' => $store->id,
+                    'password' => Hash::make('password123'),
+                    'role' => 'employee',
+                    'status' => 'inactive',  // inactive
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            for ($j = $femaleCount; $j < 5; $j++) {
+                $employeesToInsert[] = [
+                    'nik' => 'EMP' . $store->id . 'F' . $j,
+                    'name' => 'Employee Female ' . ($j + 1) . ' Store ' . $store->store_code,
+                    'email' => 'employee' . $store->id . 'f' . $j . '@store.com',
+                    'gender' => 'female',
+                    'phone' => $faker->phoneNumber,
+                    'store_id' => $store->id,
+                    'password' => Hash::make('password123'),
+                    'role' => 'employee',
+                    'status' => 'inactive',  // inactive
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        Employee::insert($employeesToInsert);
+
+        $this->command->info('Seeder Employee selesai: 10 karyawan per store, status awal inactive kecuali admin.');
     }
 }

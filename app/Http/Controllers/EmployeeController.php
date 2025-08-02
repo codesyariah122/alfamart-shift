@@ -66,7 +66,7 @@ class EmployeeController extends Controller
             'phone' => $request->phone,
             'nik' => $request->nik,
             'gender' => $request->gender,
-            'status' => 'inactive',
+            'status' => Employee::STATUS_INACTIVE,
             'activation_token' => $token,
         ]);
         Mail::to($employee->email)->send(new EmployeeActivationMail($employee));
@@ -135,7 +135,7 @@ class EmployeeController extends Controller
 
         // Update status menjadi active & hapus token
         $employee->update([
-            'status' => 'active',
+            'status' => Employee::STATUS_ACTIVE,
             'email_verified_at' => Carbon::now(),
         ]);
         $frontendUrl = env('FRONTEND_APP'); // "http://localhost:3000"
