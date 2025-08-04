@@ -1,4 +1,5 @@
 # Alfamart Shift Scheduler
+<img width="601" height="338" alt="Untitled" src="https://github.com/user-attachments/assets/8695019e-e77a-4119-99bf-f855166bbbe8" />
 <img width="1919" height="940" alt="Screenshot 2025-08-04 205907" src="https://github.com/user-attachments/assets/51ef56cb-a43f-498d-af4f-7853ed534388" />
 <img width="1915" height="967" alt="Screenshot 2025-08-04 205931" src="https://github.com/user-attachments/assets/4b8b77e4-cf2a-488b-ade7-abddcf4b5bb0" />
 
