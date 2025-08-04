@@ -15,20 +15,12 @@ class EmployeeSeeder extends Seeder
     {
         $faker = Faker::create();
 
-        // Nonaktifkan FK constraints sementara
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-
-        // Hapus data schedules dan data lain yg tergantung employee
         DB::table('schedules')->delete();
-        DB::table('notifications')->delete(); // Hapus juga tabel yg ada FK ke employees
-
-        // Hapus data employee dengan delete, bukan truncate
+        DB::table('notifications')->delete();
         Employee::query()->delete();
-
-        // Aktifkan FK constraints lagi
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // Lanjut ke insert data employee
         $stores = Store::all();
 
         if ($stores->isEmpty()) {
@@ -40,10 +32,13 @@ class EmployeeSeeder extends Seeder
         $adminCreated = false;
 
         foreach ($stores as $store) {
-            $maleCount = 0;
-            $femaleCount = 0;
+            $storeIs24Hours = $store->store_type === '24jam'; // pastikan kolom ini ada
 
-            // Buat 1 admin sekali saja, status aktif
+            $totalEmployees = $storeIs24Hours ? 10 : 6;
+            $numMale = $storeIs24Hours ? 8 : 3; // default laki-laki
+            $numFemale = $storeIs24Hours ? 2 : ($totalEmployees - $numMale);
+
+            // Admin sekali saja
             if (!$adminCreated) {
                 $employeesToInsert[] = [
                     'nik' => 'ADMIN' . $store->id,
@@ -54,47 +49,51 @@ class EmployeeSeeder extends Seeder
                     'store_id' => $store->id,
                     'password' => Hash::make('admin123'),
                     'role' => 'admin',
-                    'status' => 'active',  // admin aktif
+                    'status' => 'active',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
                 $adminCreated = true;
             }
 
-            // 1 COS (male), status inactive
+            // Acak gender untuk COS dan ACOS
+            $cosGender = $faker->randomElement(['male', 'female']);
+            $acosGender = $cosGender === 'male' ? 'female' : 'male';
+            $numMale -= $cosGender === 'male' ? 1 : 0;
+            $numFemale -= $cosGender === 'female' ? 1 : 0;
+
+            // COS
             $employeesToInsert[] = [
-                'nik' => 'COS' . $store->id . 'M',
-                'name' => 'COS Male Store ' . $store->store_code,
-                'email' => 'cos' . $store->id . 'm@store.com',
-                'gender' => 'male',
+                'nik' => 'COS' . $store->id,
+                'name' => 'COS Store ' . $store->store_code,
+                'email' => 'cos' . $store->id . '@store.com',
+                'gender' => $cosGender,
                 'phone' => $faker->phoneNumber,
                 'store_id' => $store->id,
                 'password' => Hash::make('password123'),
                 'role' => 'cos',
-                'status' => 'inactive',  // inactive
+                'status' => 'inactive',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
-            $maleCount++;
 
-            // 1 ACOS (female), status inactive
+            // ACOS
             $employeesToInsert[] = [
-                'nik' => 'ACOS' . $store->id . 'F',
-                'name' => 'ACOS Female Store ' . $store->store_code,
-                'email' => 'acos' . $store->id . 'f@store.com',
-                'gender' => 'female',
+                'nik' => 'ACOS' . $store->id,
+                'name' => 'ACOS Store ' . $store->store_code,
+                'email' => 'acos' . $store->id . '@store.com',
+                'gender' => $acosGender,
                 'phone' => $faker->phoneNumber,
                 'store_id' => $store->id,
                 'password' => Hash::make('password123'),
                 'role' => 'acos',
-                'status' => 'inactive',  // inactive
+                'status' => 'inactive',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
-            $femaleCount++;
 
-            // Sisanya employee biasa, status inactive
-            for ($i = $maleCount; $i < 5; $i++) {
+            // Sisa karyawan biasa
+            for ($i = 0; $i < $numMale; $i++) {
                 $employeesToInsert[] = [
                     'nik' => 'EMP' . $store->id . 'M' . $i,
                     'name' => 'Employee Male ' . ($i + 1) . ' Store ' . $store->store_code,
@@ -104,13 +103,13 @@ class EmployeeSeeder extends Seeder
                     'store_id' => $store->id,
                     'password' => Hash::make('password123'),
                     'role' => 'employee',
-                    'status' => 'inactive',  // inactive
+                    'status' => 'inactive',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
             }
 
-            for ($j = $femaleCount; $j < 5; $j++) {
+            for ($j = 0; $j < $numFemale; $j++) {
                 $employeesToInsert[] = [
                     'nik' => 'EMP' . $store->id . 'F' . $j,
                     'name' => 'Employee Female ' . ($j + 1) . ' Store ' . $store->store_code,
@@ -120,7 +119,7 @@ class EmployeeSeeder extends Seeder
                     'store_id' => $store->id,
                     'password' => Hash::make('password123'),
                     'role' => 'employee',
-                    'status' => 'inactive',  // inactive
+                    'status' => 'inactive',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
@@ -129,6 +128,6 @@ class EmployeeSeeder extends Seeder
 
         Employee::insert($employeesToInsert);
 
-        $this->command->info('Seeder Employee selesai: 10 karyawan per store, status awal inactive kecuali admin.');
+        $this->command->info('Seeder Employee selesai: sesuai dengan aturan toko 24 jam dan reguler.');
     }
 }

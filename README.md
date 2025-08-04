@@ -52,14 +52,15 @@ php artisan migrate --seed
 
 6. Jalankan server:  
 ```
-php artisan serve
+double click file start.bat
 ```  
-### Tinker 
+or running :
 ```
-php artisan tinker
-
-\App\Models\Schedule::truncate();
-
+klik kanan file start.ps1 open with powershell
+```
+Or Manual
+```
+php artisan serve
 ```  
 
 ### Queue untuk schedule send email
@@ -68,6 +69,15 @@ php artisan tinker
 php artisan queue:work --queue=default
 php artisan queue:work --tries=1 --timeout=0 --verbose
 ```  
+
+### Tinker 
+```
+php artisan tinker
+
+\App\Models\Schedule::truncate();
+
+```  
+
 
 ## Cara Penggunaan
 

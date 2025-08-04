@@ -175,7 +175,7 @@ class ScheduleGeneratorService
             $numLibur = min(2, $totalEmployees - $numPagi - $numSiang - $numMalam);
 
             // Ambil laki laki dan perempuan
-            $malam = $pria->take($numMalam);
+            $malam = $pria->shuffle()->take($numMalam);
             $assigned = collect($malam);
 
             // Sisanya di pagi dan siang

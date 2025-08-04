@@ -48,6 +48,15 @@ class Employee extends Authenticatable
         ];
     }
 
+    public function canWork($shiftName, $date)
+    {
+        if ($shiftName === 'Malam' && $this->gender === 'female') {
+            return false;
+        }
+
+        return true;
+    }
+
     public function store()
     {
         return $this->belongsTo(Store::class);
