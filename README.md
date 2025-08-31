@@ -119,6 +119,25 @@ Endpoint API Utama
 }
 ```  
 
+### IF Using supervisor  
+add /etc/supervisor/conf.d/laravel-queue.conf
+```
+[program:laravel-queue]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/alfamart-shift/alfamart-shift-backend/artisan queue:work --queue=default --sleep=3 --tries=3 --timeout=90
+autostart=true
+autorestart=true
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/alfamart-shift/alfamart-shift-backend/storage/logs/queue-worker.log
+```
+#### execute command : 
+```
+supervisord -c /etc/supervisor/supervisord.conf
+supervisorctl reread
+supervisorctl update
+supervisorctl start laravel-queue:*
+```
 ### Cara Generate Jadwal
 
     auto: Sistem membuat jadwal otomatis berdasarkan aturan default.
