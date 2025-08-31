@@ -1,4 +1,5 @@
 # Alfamart Shift Scheduler
+<img width="1508" height="823" alt="Screenshot 2025-08-31 214625" src="https://github.com/user-attachments/assets/eed12749-8dad-4ffa-a699-115cffd43d9a" />
 
 Aplikasi web untuk manajemen jadwal shift karyawan Alfamart secara otomatis dan manual. Memudahkan pengaturan dan penjadwalan shift kerja di toko Alfamart dengan berbagai fitur fleksibel.
 
