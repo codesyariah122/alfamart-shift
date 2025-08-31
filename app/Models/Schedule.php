@@ -24,6 +24,8 @@ class Schedule extends Model
 
     protected $casts = [
         'schedule_date' => 'date',
+        'month' => 'integer',
+        'year'  => 'integer',
     ];
 
     public function employee()

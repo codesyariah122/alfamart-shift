@@ -8,7 +8,9 @@ use App\Http\Controllers\{
     StoreController,
     ShiftController,
     SettingsController,
-    PublicApiController
+    PublicApiController,
+    LeaveRequestController,
+    ShiftSwapController
 };
 
 // Public routes
@@ -30,6 +32,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/schedules', [ScheduleController::class, 'getSchedule']);
     Route::get('/schedules/manual', [ScheduleController::class, 'getManualSchedule']);
 });
+
+Route::middleware('auth:sanctum')->group(function() {
+    // Leave
+    Route::post('/leave-requests', [LeaveRequestController::class,'store']);
+    Route::get('/leave-requests', [LeaveRequestController::class,'index']);
+    Route::post('/leave-requests/{id}/approve', [LeaveRequestController::class,'approve']);
+
+    // Shift swap
+    Route::post('/shift-swaps', [ShiftSwapController::class,'store']);
+    Route::get('/shift-swaps', [ShiftSwapController::class,'index']);
+    Route::post('/shift-swaps/{id}/approve', [ShiftSwapController::class,'approve']);
+});
+
 
 // Role-based routes
 Route::middleware(['auth:sanctum', 'role:admin,cos,acos,employee'])->group(function () {
@@ -59,7 +74,13 @@ Route::middleware(['auth:sanctum', 'role:admin,cos,acos,employee'])->group(funct
     Route::put('/stores/{id}/settings', [StoreController::class, 'updateSettings']);
 
     // Settings
-    Route::post('/settings/store', [SettingsController::class, 'updateStore']);
+
+    // berdasarkan settings toko
+    // Route::post('/settings/store', [SettingsController::class, 'updateStore']);
+    
+    // berdasarkan setting id
+    Route::put('/stores/{id}', [StoreController::class, 'update']);
+
     Route::get('/shifts', [ShiftController::class, 'index']);
     Route::post('/shifts', [ShiftController::class, 'store']);
     Route::put('/shifts/{shift}', [ShiftController::class, 'update']);
